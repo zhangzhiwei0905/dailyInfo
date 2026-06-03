@@ -10,5 +10,6 @@ assert.equal(fs.existsSync("tailwind.config.ts"), true);
 assert.equal(fs.existsSync("prisma/schema.prisma"), true);
 assert.equal(fs.existsSync("lib/db/prisma.ts"), true);
 assert.equal(fs.existsSync("lib/db/source-repository.ts"), true);
+assert.equal(fs.existsSync("lib/web/generation-service.ts"), true);
 
 console.log("[web-smoke-test] ok");
