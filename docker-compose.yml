@@ -16,7 +16,10 @@ services:
       retries: 5
 
   web:
-    build: .
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
     depends_on:
       postgres:
         condition: service_healthy
@@ -50,7 +53,10 @@ services:
     command: sh -c "npm run db:deploy && npm run sources:import && npm run start"
 
   worker:
-    build: .
+    build:
+      context: .
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:22-alpine}
     depends_on:
       postgres:
         condition: service_healthy
