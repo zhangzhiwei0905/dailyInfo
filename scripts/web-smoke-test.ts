@@ -45,4 +45,9 @@ const sourceTestRoute = fs.readFileSync("app/api/admin/sources/[id]/test/route.t
 assert.equal(sourceTestRoute.includes("requireAdmin"), false);
 assert.match(sourceTestRoute, /status: 401/);
 
+const authSource = fs.readFileSync("lib/web/auth.ts", "utf8");
+assert.match(authSource, /ADMIN_COOKIE_SECURE/);
+assert.match(authSource, /dailybrief_admin_v2/);
+assert.equal(authSource.includes('secure: process.env.NODE_ENV === "production"'), false);
+
 console.log("[web-smoke-test] ok");

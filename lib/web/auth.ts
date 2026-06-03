@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const COOKIE_NAME = "dailybrief_admin";
+const COOKIE_NAME = "dailybrief_admin_v2";
 
 function secret(): string {
   const value = process.env.SESSION_SECRET;
@@ -14,6 +14,10 @@ function adminPassword(): string {
   const value = process.env.ADMIN_PASSWORD;
   if (!value) throw new Error("ADMIN_PASSWORD is required");
   return value;
+}
+
+function adminCookieSecure(): boolean {
+  return process.env.ADMIN_COOKIE_SECURE === "true";
 }
 
 function sign(value: string): string {
@@ -44,7 +48,7 @@ export async function setAdminSession(): Promise<void> {
   cookieStore.set(COOKIE_NAME, createSessionValue(), {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: adminCookieSecure(),
     path: "/",
   });
 }
