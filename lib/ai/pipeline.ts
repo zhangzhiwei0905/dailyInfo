@@ -16,9 +16,15 @@ export interface BriefItem {
   importance: number;
 }
 
+export interface TopicOverview {
+  category: Category;
+  summary: string;
+}
+
 export interface DailyReport {
   hero_headline: string;
   daily_overview: string;
+  topic_overviews?: TopicOverview[];
   tech_briefs: BriefItem[];
   finance_briefs: BriefItem[];
   politics_briefs: BriefItem[];
@@ -118,6 +124,7 @@ async function callOnce(userPayloadJson: string): Promise<DailyReport> {
           "The JSON must contain every field non-empty (briefs arrays per the system-prompt counts):",
           "  - hero_headline: 10-25 word headline of the day",
           "  - daily_overview: **150-250 word** paragraph covering tech / finance / politics signals so a reader sees the whole picture at a glance",
+          "  - topic_overviews: exactly 3 objects, one per category: tech / finance / politics. Each summary is 35-70 words and should stand alone. If a category has no meaningful signal today, say that plainly instead of inventing one.",
           "  - tech_briefs: **3-5** tech BriefItems",
           "  - finance_briefs: **3-5** finance BriefItems",
           "  - politics_briefs: **2-3** politics BriefItems",
@@ -137,6 +144,7 @@ async function callOnce(userPayloadJson: string): Promise<DailyReport> {
           "JSON 必须包含全部字段且不能为空（briefs 数组按 system prompt 规定的条数填充）：",
           "  - hero_headline: 10-25 字的当日一句话头条",
           "  - daily_overview: **150-220 字** 的当日总览段落，一段话覆盖技术 / 财经 / 时政 的核心信号，让读者一眼抓住全貌",
+          "  - topic_overviews: 固定 3 个对象，分别对应 tech / finance / politics。每个 summary 35-70 字，独立概括该主题；如果某主题当天没有明显信号，请直接说明，不要硬凑。",
           "  - tech_briefs: **3-5 条** 科技 BriefItem",
           "  - finance_briefs: **3-5 条** 财经 BriefItem",
           "  - politics_briefs: **2-3 条** 时政 BriefItem",
@@ -185,6 +193,7 @@ async function callOnce(userPayloadJson: string): Promise<DailyReport> {
   return {
     hero_headline: parsed.hero_headline ?? "",
     daily_overview: parsed.daily_overview ?? "",
+    topic_overviews: parsed.topic_overviews ?? [],
     tech_briefs: parsed.tech_briefs ?? [],
     finance_briefs: parsed.finance_briefs ?? [],
     politics_briefs: parsed.politics_briefs ?? [],

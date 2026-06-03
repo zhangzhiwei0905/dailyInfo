@@ -45,8 +45,8 @@ const TEXTS_ZH = {
   emptyCategory: "该分类今日无内容。",
   emptyGroup: "该组今日无数据。",
   footer: "内容均来自原媒体，本站仅作摘要整理与回链。",
-  summaryLabelNews: "中文摘要",
-  summaryLabelIntro: "中文介绍",
+  summaryLabelNews: "AI 总结",
+  summaryLabelIntro: "AI 总结",
   tradingMarketOverview: "市场总览",
   tradingTodayFocus: "今日关注",
   tradingAllAssets: "全部资产",
@@ -70,6 +70,15 @@ const TEXTS_ZH = {
   mdTodayKeywords: "今日关键词",
   mdImportance: "重要度",
   archiveLink: "← 历史归档",
+  reportHeading: "今日简报",
+  weekdayLabel: "星期",
+  lunarLabel: "农历",
+  solarTermLabel: "节气",
+  noSolarTerm: "今日无节气",
+  nextSolarTermLabel: "下一节气",
+  topicOverviewLabel: "主题速览",
+  topicQuietFinance: "当日无明确财经主线，后续可在财经栏目查看原始来源更新。",
+  topicQuietGeneric: "当日未形成高置信主题主线，可在下方栏目继续查看原始条目。",
 };
 
 const TEXTS_EN: typeof TEXTS_ZH = {
@@ -120,6 +129,15 @@ const TEXTS_EN: typeof TEXTS_ZH = {
   mdTodayKeywords: "Keywords",
   mdImportance: "Importance",
   archiveLink: "← Archive",
+  reportHeading: "Today's Brief",
+  weekdayLabel: "Weekday",
+  lunarLabel: "Lunar",
+  solarTermLabel: "Solar term",
+  noSolarTerm: "No solar term today",
+  nextSolarTermLabel: "Next solar term",
+  topicOverviewLabel: "Topic Overview",
+  topicQuietFinance: "No clear finance through-line emerged today; check the finance tab for source updates.",
+  topicQuietGeneric: "No high-confidence theme emerged today; review the source items below for details.",
 };
 
 const STR = REPORT_LOCALE === "en" ? TEXTS_EN : TEXTS_ZH;
@@ -440,6 +458,180 @@ function formatDate(d: Date | undefined): string {
   }
 }
 
+type DateDisplay = {
+  fullDate: string;
+  weekday: string;
+  lunar: string;
+  solarTermToday: string;
+  nextSolarTerm: string;
+  nextSolarTermDate: string;
+};
+
+type TopicOverviewView = {
+  category: Category;
+  label: string;
+  summary: string;
+  count: number;
+};
+
+const SOLAR_TERM_COEFFICIENTS = [
+  6.11, 20.84, 4.6295, 19.4599, 6.3826, 21.4155, 5.59, 20.888,
+  6.318, 21.86, 6.5, 22.2, 7.928, 23.65, 8.35, 23.95,
+  8.44, 23.822, 9.098, 24.218, 8.218, 23.08, 7.9, 22.6,
+] as const;
+
+const SOLAR_TERMS_ZH = [
+  "小寒", "大寒", "立春", "雨水", "惊蛰", "春分", "清明", "谷雨",
+  "立夏", "小满", "芒种", "夏至", "小暑", "大暑", "立秋", "处暑",
+  "白露", "秋分", "寒露", "霜降", "立冬", "小雪", "大雪", "冬至",
+] as const;
+
+const SOLAR_TERMS_EN = [
+  "Minor Cold", "Major Cold", "Start of Spring", "Rain Water",
+  "Awakening of Insects", "Spring Equinox", "Clear and Bright", "Grain Rain",
+  "Start of Summer", "Grain Buds", "Grain in Ear", "Summer Solstice",
+  "Minor Heat", "Major Heat", "Start of Autumn", "End of Heat",
+  "White Dew", "Autumn Equinox", "Cold Dew", "Frost Descent",
+  "Start of Winter", "Minor Snow", "Major Snow", "Winter Solstice",
+] as const;
+
+function localNoon(date: string): Date {
+  return new Date(`${date}T12:00:00`);
+}
+
+function dateKeyInReportTz(d: Date): string {
+  const fmt = new Intl.DateTimeFormat("en-CA", {
+    timeZone: getReportTz(),
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  return fmt.format(d);
+}
+
+function formatFullDate(d: Date): string {
+  const localeTag = REPORT_LOCALE === "en" ? "en-US" : "zh-CN";
+  return d.toLocaleDateString(localeTag, {
+    timeZone: getReportTz(),
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+}
+
+function formatWeekday(d: Date): string {
+  const localeTag = REPORT_LOCALE === "en" ? "en-US" : "zh-CN";
+  return d.toLocaleDateString(localeTag, {
+    timeZone: getReportTz(),
+    weekday: "long",
+  });
+}
+
+function formatShortMonthDay(d: Date): string {
+  const localeTag = REPORT_LOCALE === "en" ? "en-US" : "zh-CN";
+  return d.toLocaleDateString(localeTag, {
+    timeZone: getReportTz(),
+    month: "short",
+    day: "numeric",
+  });
+}
+
+function formatLunarDate(d: Date): string {
+  try {
+    return new Intl.DateTimeFormat(
+      REPORT_LOCALE === "en" ? "en-u-ca-chinese" : "zh-CN-u-ca-chinese",
+      {
+        timeZone: getReportTz(),
+        month: "long",
+        day: "numeric",
+      },
+    ).format(d);
+  } catch {
+    return "";
+  }
+}
+
+function solarTermDate(year: number, termIndex: number): Date {
+  const y = year % 100;
+  const day = Math.floor(y * 0.2422 + SOLAR_TERM_COEFFICIENTS[termIndex]) - Math.floor((y - 1) / 4);
+  const month = Math.floor(termIndex / 2);
+  return new Date(year, month, day, 12);
+}
+
+function getSolarTermInfo(date: string): Pick<DateDisplay, "solarTermToday" | "nextSolarTerm" | "nextSolarTermDate"> {
+  const base = localNoon(date);
+  const year = base.getFullYear();
+  const terms = [year, year + 1].flatMap((y) =>
+    SOLAR_TERMS_ZH.map((zh, i) => ({
+      zh,
+      en: SOLAR_TERMS_EN[i],
+      date: solarTermDate(y, i),
+    })),
+  );
+  const currentKey = dateKeyInReportTz(base);
+  const today = terms.find((term) => dateKeyInReportTz(term.date) === currentKey);
+  const next = terms.find((term) => term.date.getTime() > base.getTime());
+  const labelFor = (term: { zh: string; en: string }) =>
+    REPORT_LOCALE === "en" ? term.en : term.zh;
+  return {
+    solarTermToday: today ? labelFor(today) : "",
+    nextSolarTerm: next ? labelFor(next) : "",
+    nextSolarTermDate: next ? formatShortMonthDay(next.date) : "",
+  };
+}
+
+function getDateDisplay(date: string): DateDisplay {
+  const d = localNoon(date);
+  return {
+    fullDate: formatFullDate(d),
+    weekday: formatWeekday(d),
+    lunar: formatLunarDate(d),
+    ...getSolarTermInfo(date),
+  };
+}
+
+function summarizeBriefs(briefs: BriefItem[], fallback: string): string {
+  const ranked = [...briefs]
+    .sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0))
+    .slice(0, 2);
+  if (ranked.length === 0) return fallback;
+  return ranked.map((b) => b.summary).join(" ");
+}
+
+function getTopicOverviews(report: DailyReport, counts: Record<Category, number>): TopicOverviewView[] {
+  const generated = new Map<Category, string>();
+  for (const item of report.topic_overviews ?? []) {
+    if (item.category === "tech" || item.category === "finance" || item.category === "politics") {
+      if (item.summary) generated.set(item.category, item.summary);
+    }
+  }
+  const fallbackByCategory: Record<Category, string> = {
+    tech: summarizeBriefs(report.tech_briefs, STR.topicQuietGeneric),
+    finance: summarizeBriefs(report.finance_briefs, STR.topicQuietFinance),
+    politics: summarizeBriefs(report.politics_briefs, STR.topicQuietGeneric),
+  };
+  return (["tech", "politics", "finance"] as Category[]).map((category) => ({
+    category,
+    label: CATEGORY_LABELS[category],
+    summary: generated.get(category) ?? fallbackByCategory[category],
+    count: counts[category],
+  }));
+}
+
+function renderTopicOverviewCards(topics: TopicOverviewView[]): string {
+  return topics
+    .map(
+      (topic) => `<article class="topic-card topic-${topic.category}">
+        <div class="topic-head">
+          <span class="topic-label">${escapeHtml(topic.label)}</span>
+          <span class="topic-count">${topic.count}</span>
+        </div>
+        <p>${escapeHtml(topic.summary)}</p>
+      </article>`,
+    )
+    .join("");
+}
+
 // ----- raw article renderers -----
 
 function renderArticleHtml(a: ArticleInput, showSource = false): string {
@@ -453,15 +645,16 @@ function renderArticleHtml(a: ArticleInput, showSource = false): string {
   const time = formatDate(a.publishedAt);
   const sourceLabel = showSource && a.source ? escapeHtml(a.source) : "";
   const metaLine = [sourceLabel, time].filter(Boolean).join(" · ");
-  // News-style summary label for finance/politics, project-intro style for GH/tech.
-  const newsy = a.category === "finance" || a.category === "politics";
-  const summaryLabel = newsy ? STR.summaryLabelNews : STR.summaryLabelIntro;
+  const facts = [meta, metaLine].filter(Boolean);
   return `<article class="article">
-  <h3 class="article-title"><a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a></h3>
-  ${meta ? `<p class="article-stats">${meta}</p>` : ""}
-  ${metaLine ? `<p class="article-meta">${metaLine}</p>` : ""}
-  ${excerpt ? `<p class="article-excerpt">${excerpt}</p>` : ""}
-  ${summary ? `<p class="article-summary"><span class="summary-label">${summaryLabel}</span> ${summary}</p>` : ""}
+  <div class="article-main">
+    <h3 class="article-title"><a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a></h3>
+    ${facts.length > 0 ? `<div class="article-facts">${facts.map((fact) => `<p>${fact}</p>`).join("")}</div>` : ""}
+  </div>
+  <div class="article-body">
+    ${excerpt ? `<div class="article-excerpt-card"><span class="excerpt-label">原文摘录</span><p class="article-excerpt">${excerpt}</p></div>` : ""}
+    ${summary ? `<div class="article-summary-card"><span class="summary-label">${STR.summaryLabelNews}</span><p class="article-summary">${summary}</p></div>` : ""}
+  </div>
 </article>`;
 }
 
@@ -533,6 +726,9 @@ export function renderHtml(
   date: string,
 ): string {
   const trading = report.trading;
+  // UI-only suppression: keep trading data in the JSON cache, but do not
+  // surface the market panel while the product direction is news-first.
+  const showTradingPanel = false;
 
   // Split tech raw subgroups: "tech" L1 panel (github-trending + ai-news)
   // vs. "community" L1 panel (cn-community). Keeps the registry simple
@@ -552,164 +748,351 @@ export function renderHtml(
     politics: sumItems(raw.politics),
     community: sumItems(techCommunitySubs),
   };
+  const dateDisplay = getDateDisplay(date);
+  const topicOverviews = getTopicOverviews(report, counts);
+  const pageDescription =
+    topicOverviews.map((t) => t.summary).join(" ") ||
+    report.daily_overview ||
+    report.hero_headline ||
+    STR.footer;
 
   return `<!doctype html>
 <html lang="${REPORT_LOCALE === "en" ? "en" : "zh-CN"}">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="${escapeHtml(pageDescription)}">
+<meta name="theme-color" content="#f6f4ef">
 <title>${STR.siteTitle} · ${date}</title>
 <style>
   :root {
-    --bg: #fafaf9;
-    --bg-elevated: #ffffff;
-    --fg: #18181b;
-    --fg-soft: #3f3f46;
-    --muted: #71717a;
-    --rule: #e4e4e7;
-    --card: #f4f4f5;
-    --link: #1d4ed8;
-    --accent: #18181b;
-    --accent-fg: #fafaf9;
-    --rank-high-bg: #fee2e2;
-    --rank-high-fg: #991b1b;
-    --rank-mid-bg: #fef3c7;
-    --rank-mid-fg: #92400e;
-    --rank-low-bg: #e0e7ff;
-    --rank-low-fg: #3730a3;
-    --hero-grad-from: #fafaf9;
-    --hero-grad-to: #f4f4f5;
+    --bg: #f6f4ef;
+    --bg-elevated: rgba(255, 255, 252, 0.82);
+    --fg: #111111;
+    --fg-soft: #3d3d38;
+    --muted: #77746b;
+    --rule: rgba(20, 20, 18, 0.11);
+    --card: rgba(255, 255, 252, 0.62);
+    --link: #0f5f8c;
+    --accent: #111111;
+    --accent-fg: #fbfaf6;
+    --cool: #dbe9ea;
+    --cool-strong: #0f5f8c;
+    --rank-high-bg: #111111;
+    --rank-high-fg: #fbfaf6;
+    --rank-mid-bg: #dbe9ea;
+    --rank-mid-fg: #164c59;
+    --rank-low-bg: rgba(17, 17, 17, 0.08);
+    --rank-low-fg: #4a4944;
+    --shadow: 0 24px 70px rgba(45, 42, 35, 0.12);
+    --radius: 1.35rem;
   }
   @media (prefers-color-scheme: dark) {
     :root {
-      --bg: #0a0a0a;
-      --bg-elevated: #18181b;
-      --fg: #fafafa;
-      --fg-soft: #d4d4d8;
-      --muted: #a1a1aa;
-      --rule: #27272a;
-      --card: #18181b;
-      --link: #93c5fd;
-      --accent: #fafafa;
-      --accent-fg: #0a0a0a;
-      --rank-high-bg: rgba(239,68,68,0.18);
-      --rank-high-fg: #fca5a5;
-      --rank-mid-bg: rgba(245,158,11,0.18);
-      --rank-mid-fg: #fcd34d;
-      --rank-low-bg: rgba(99,102,241,0.18);
-      --rank-low-fg: #a5b4fc;
-      --hero-grad-from: #18181b;
-      --hero-grad-to: #0a0a0a;
+      --bg: #11110f;
+      --bg-elevated: rgba(28, 28, 25, 0.82);
+      --fg: #f7f4ec;
+      --fg-soft: #d8d2c3;
+      --muted: #a8a090;
+      --rule: rgba(247, 244, 236, 0.13);
+      --card: rgba(247, 244, 236, 0.07);
+      --link: #9ccfd9;
+      --accent: #f7f4ec;
+      --accent-fg: #11110f;
+      --cool: rgba(156, 207, 217, 0.14);
+      --cool-strong: #9ccfd9;
+      --rank-high-bg: #f7f4ec;
+      --rank-high-fg: #11110f;
+      --rank-mid-bg: rgba(156, 207, 217, 0.17);
+      --rank-mid-fg: #b8e3ea;
+      --rank-low-bg: rgba(247, 244, 236, 0.1);
+      --rank-low-fg: #c7c0b1;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.32);
     }
   }
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
   body {
     margin: 0;
-    background: var(--bg);
+    min-height: 100dvh;
+    background:
+      radial-gradient(circle at 78% 0%, rgba(219, 233, 234, 0.72), transparent 34rem),
+      radial-gradient(circle at 8% 16%, rgba(255, 255, 252, 0.82), transparent 28rem),
+      linear-gradient(180deg, var(--bg), var(--bg));
     color: var(--fg);
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
-      "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display",
+      "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+      "Microsoft YaHei", sans-serif;
     line-height: 1.6;
     -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
-  main { max-width: 960px; margin: 0 auto; padding: 2.5rem 1.5rem 4rem; }
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.18;
+    background-image:
+      linear-gradient(rgba(17, 17, 17, 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(17, 17, 17, 0.025) 1px, transparent 1px);
+    background-size: 28px 28px;
+    mask-image: linear-gradient(180deg, #000, transparent 72%);
+  }
+  main {
+    width: min(100% - 2rem, 1180px);
+    margin: 0 auto;
+    padding: clamp(2rem, 5vw, 5rem) 0 4.5rem;
+  }
+  a { color: inherit; }
+  button { -webkit-tap-highlight-color: transparent; }
+  button:focus-visible,
+  a:focus-visible {
+    outline: 2px solid var(--cool-strong);
+    outline-offset: 4px;
+  }
 
   /* ===== header ===== */
-  header.report-header { margin-bottom: 1.25rem; }
+  .skip-link {
+    position: absolute;
+    left: 1rem;
+    top: 1rem;
+    z-index: 3;
+    transform: translateY(-160%);
+    background: var(--accent);
+    color: var(--accent-fg);
+    padding: 0.65rem 0.9rem;
+    border-radius: 999px;
+    text-decoration: none;
+    transition: transform 0.2s ease;
+  }
+  .skip-link:focus { transform: translateY(0); }
+  header.report-header {
+    min-height: 0;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 0.85rem;
+    padding: clamp(0.9rem, 2.4vw, 1.4rem) 0 clamp(1.15rem, 3vw, 2rem);
+    border-bottom: 1px solid var(--rule);
+    margin-bottom: 1.4rem;
+  }
+  .header-top {
+    display: grid;
+    grid-template-columns: minmax(12rem, max-content) minmax(0, 1fr);
+    gap: clamp(0.8rem, 3vw, 1.8rem);
+    align-items: end;
+  }
   .eyebrow {
     font-size: 0.72rem;
     text-transform: uppercase;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.16em;
     color: var(--muted);
-    font-weight: 500;
+    font-weight: 650;
   }
   h1.report-title {
-    font-size: 2.2rem;
+    font-size: clamp(2.25rem, 5.4vw, 4.2rem);
+    font-weight: 740;
+    margin: 0;
+    letter-spacing: 0;
+    line-height: 1;
+    text-wrap: balance;
+  }
+  .date-stack {
+    min-width: 0;
+  }
+  .date-details {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    justify-content: flex-end;
+    margin: 0 0 0.12rem;
+  }
+  .date-chip {
+    min-width: 0;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 0.45rem;
+    max-width: 100%;
+    padding: 0.36rem 0.62rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: color-mix(in srgb, var(--card) 76%, transparent);
+  }
+  .date-chip-label {
+    display: inline;
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.66rem;
     font-weight: 700;
-    margin: 0.4rem 0 1.2rem;
-    letter-spacing: -0.02em;
-    line-height: 1.1;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .date-chip-value {
+    display: inline;
+    color: var(--fg);
+    font-size: 0.84rem;
+    font-weight: 650;
+    line-height: 1.2;
+    white-space: nowrap;
+  }
+  .date-chip-sub {
+    display: inline;
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.78rem;
+    line-height: 1.2;
+    white-space: nowrap;
   }
   .archive-link {
     display: inline-block;
-    margin-bottom: 1rem;
+    margin-bottom: 1.3rem;
     font-size: 0.85rem;
     color: var(--muted);
     text-decoration: none;
-    border-bottom: 1px dashed var(--rule);
+    border-bottom: 1px solid var(--rule);
     padding-bottom: 1px;
   }
-  .archive-link:hover { color: var(--accent); border-bottom-style: solid; }
+  .archive-link:hover { color: var(--fg); border-bottom-color: var(--fg); }
   .hero-card {
-    background: linear-gradient(135deg, var(--hero-grad-from) 0%, var(--hero-grad-to) 100%);
+    display: grid;
+    grid-template-columns: max-content minmax(0, 1fr);
+    gap: clamp(0.8rem, 2.5vw, 1.4rem);
+    align-items: start;
+    background: var(--bg-elevated);
     border: 1px solid var(--rule);
-    border-left: 4px solid var(--accent);
-    padding: 1rem 1.4rem;
-    border-radius: 0.6rem;
+    border-radius: 1.05rem;
+    box-shadow: 0 18px 52px rgba(45, 42, 35, 0.09);
+    padding: clamp(0.85rem, 2.2vw, 1.25rem);
+    backdrop-filter: blur(18px);
+    position: relative;
+    overflow: hidden;
   }
+  .hero-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background:
+      linear-gradient(135deg, transparent 0 68%, color-mix(in srgb, var(--cool) 72%, transparent) 68% 100%);
+    opacity: 0.58;
+  }
+  .hero-card > * { position: relative; }
   .hero-eyebrow {
     font-size: 0.7rem;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
     color: var(--muted);
-    font-weight: 500;
+    font-weight: 650;
   }
-  .hero-headline {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin: 0.35rem 0 0;
-    line-height: 1.45;
-    color: var(--fg);
-  }
-  .overview-card {
-    margin: 0.7rem 0 0;
-    padding: 0.7rem 1.1rem;
-    background: var(--card);
-    border-radius: 0.5rem;
-    border-left: 3px solid var(--muted);
-  }
-  .overview-card .eyebrow { display: block; margin-bottom: 0.3rem; }
-  .overview-text {
+  .topic-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.55rem;
     margin: 0;
+  }
+  .topic-card {
+    position: relative;
+    padding: 0.78rem 0.85rem 0.82rem 0.95rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.82rem;
+    background: color-mix(in srgb, var(--bg-elevated) 72%, transparent);
+    overflow: hidden;
+  }
+  .topic-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    background: var(--accent);
+    opacity: 0.8;
+  }
+  .topic-card.topic-tech::before { background: var(--cool-strong); }
+  .topic-card.topic-politics::before { background: #8d7b50; }
+  .topic-card.topic-finance::before { background: #46745b; }
+  .topic-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.55rem;
+    margin-bottom: 0.28rem;
+  }
+  .topic-label {
+    color: var(--fg);
     font-size: 0.88rem;
-    line-height: 1.65;
+    font-weight: 760;
+  }
+  .topic-count {
+    display: inline-grid;
+    min-width: 1.8rem;
+    height: 1.35rem;
+    place-items: center;
+    border-radius: 999px;
+    background: var(--fg);
+    color: var(--bg);
+    font-size: 0.72rem;
+    font-weight: 720;
+    font-variant-numeric: tabular-nums;
+  }
+  .topic-card p {
+    margin: 0;
     color: var(--fg-soft);
+    font-size: 0.82rem;
+    line-height: 1.54;
+    text-wrap: pretty;
   }
 
   /* ===== primary tabs ===== */
   .tabs {
+    position: sticky;
+    top: 0;
+    z-index: 2;
     display: flex;
-    gap: 0.25rem;
-    margin: 1.25rem 0 0.75rem;
+    gap: 0.45rem;
+    margin: 0 0 1.45rem;
+    padding: 0.75rem 0;
     border-bottom: 1px solid var(--rule);
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(18px);
   }
   .tab {
-    background: none;
-    border: none;
-    padding: 0.7rem 1.1rem;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 0.72rem 1rem;
+    border-radius: 999px;
     font-size: 0.95rem;
-    font-weight: 500;
+    font-weight: 650;
     color: var(--muted);
     cursor: pointer;
-    border-bottom: 2px solid transparent;
-    margin-bottom: -1px;
     font-family: inherit;
-    transition: color 0.15s;
+    white-space: nowrap;
+    transition: color 0.22s ease, background 0.22s ease, transform 0.22s ease;
   }
-  .tab:hover { color: var(--fg); }
+  .tab:hover { color: var(--fg); background: var(--card); transform: translateY(-1px); }
+  .tab:active { transform: translateY(0) scale(0.98); }
   .tab.active {
-    color: var(--fg);
-    border-bottom-color: var(--accent);
+    color: var(--accent-fg);
+    background: var(--accent);
+    border-color: var(--accent);
   }
   .tab .count {
     font-size: 0.72rem;
-    color: var(--muted);
+    color: currentColor;
     margin-left: 0.4rem;
-    font-weight: 400;
+    opacity: 0.66;
+    font-weight: 560;
+    font-variant-numeric: tabular-nums;
   }
   .panel { display: none; }
-  .panel.active { display: block; }
+  .panel.active {
+    display: block;
+    animation: panelIn 0.35s ease both;
+  }
+  @keyframes panelIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
 
   /* ===== digest (AI 简报) — compact ===== */
   .digest-category { margin-bottom: 1.1rem; }
@@ -717,16 +1100,17 @@ export function renderHtml(
     display: flex;
     align-items: baseline;
     gap: 0.55rem;
-    margin: 0 0 0.55rem;
-    padding-bottom: 0.35rem;
+    margin: 0 0 1rem;
+    padding-bottom: 0.75rem;
     border-bottom: 1px solid var(--rule);
   }
   .category-title {
-    font-size: 0.9rem;
-    font-weight: 600;
+    font-size: clamp(1.35rem, 3vw, 2.3rem);
+    font-weight: 730;
     color: var(--fg);
     margin: 0;
-    letter-spacing: 0.05em;
+    letter-spacing: 0;
+    line-height: 1;
   }
   .category-count {
     font-size: 0.7rem;
@@ -746,13 +1130,14 @@ export function renderHtml(
   .brief {
     background: var(--bg-elevated);
     border: 1px solid var(--rule);
-    border-radius: 0.5rem;
-    padding: 0.7rem 0.95rem;
-    transition: border-color 0.15s, transform 0.15s;
+    border-radius: 1rem;
+    padding: 0.95rem 1.05rem;
+    transition: border-color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
   }
   .brief:hover {
     border-color: var(--muted);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 14px 38px rgba(45, 42, 35, 0.09);
   }
   .brief-head {
     display: flex;
@@ -771,7 +1156,7 @@ export function renderHtml(
   .brief-rank {
     font-size: 0.7rem;
     padding: 0.12rem 0.5rem;
-    border-radius: 999px;
+    border-radius: 0.45rem;
     font-weight: 600;
     flex-shrink: 0;
   }
@@ -820,25 +1205,27 @@ export function renderHtml(
   .sub-tabs {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 1rem 0;
+    gap: 0.55rem;
+    margin: 1rem 0 1.4rem;
   }
   .sub-tab {
-    background: var(--card);
-    border: 1px solid transparent;
-    padding: 0.5rem 1.05rem;
-    border-radius: 0.5rem;
+    background: transparent;
+    border: 1px solid var(--rule);
+    padding: 0.62rem 1rem;
+    border-radius: 999px;
     font-size: 0.9rem;
-    font-weight: 500;
+    font-weight: 650;
     color: var(--fg-soft);
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.15s;
+    transition: background 0.22s ease, border-color 0.22s ease, transform 0.22s ease;
   }
-  .sub-tab:hover { border-color: var(--muted); color: var(--fg); }
+  .sub-tab:hover { border-color: var(--muted); color: var(--fg); transform: translateY(-1px); }
+  .sub-tab:active { transform: translateY(0) scale(0.98); }
   .sub-tab.active {
     background: var(--accent);
     color: var(--accent-fg);
+    border-color: var(--accent);
   }
   .sub-tab .count {
     font-size: 0.7rem;
@@ -854,7 +1241,7 @@ export function renderHtml(
     display: flex;
     flex-wrap: wrap;
     gap: 0.35rem;
-    margin: 0.9rem 0 1.3rem;
+    margin: 0.9rem 0 1.6rem;
     padding-bottom: 0.7rem;
     border-bottom: 1px solid var(--rule);
   }
@@ -867,7 +1254,7 @@ export function renderHtml(
     color: var(--fg-soft);
     cursor: pointer;
     font-family: inherit;
-    transition: all 0.15s;
+    transition: color 0.2s ease, border-color 0.2s ease, background 0.2s ease;
   }
   .source-tab:hover { border-color: var(--muted); color: var(--fg); }
   .source-tab.active {
@@ -885,51 +1272,94 @@ export function renderHtml(
 
   /* ===== article cards in raw panels ===== */
   .article {
-    padding: 1rem 0;
+    display: grid;
+    grid-template-columns: minmax(0, 0.72fr) minmax(16rem, 1fr);
+    gap: clamp(0.9rem, 3vw, 2.4rem);
+    padding: clamp(1.15rem, 2.4vw, 2rem) 0;
     border-bottom: 1px solid var(--rule);
   }
   .article:first-child { padding-top: 0; }
   .article:last-child { border-bottom: none; }
   .article-title {
-    font-size: 1rem;
-    margin: 0 0 0.3rem;
-    font-weight: 500;
-    line-height: 1.45;
+    font-size: clamp(1.25rem, 2.2vw, 1.9rem);
+    margin: 0;
+    font-weight: 720;
+    line-height: 1.12;
+    text-wrap: balance;
   }
   .article-title a { color: var(--fg); text-decoration: none; }
-  .article-title a:hover { color: var(--link); text-decoration: underline; }
-  .article-meta { color: var(--muted); font-size: 0.76rem; margin: 0 0 0.35rem; }
-  .article-stats {
+  .article-title a:hover { color: var(--link); }
+  .article-main {
+    min-width: 0;
+  }
+  .article-facts {
+    margin-top: 0.8rem;
+    display: grid;
+    gap: 0.28rem;
     color: var(--muted);
-    font-size: 0.8rem;
-    margin: 0 0 0.4rem;
-    font-feature-settings: "tnum";
+    font-size: 0.82rem;
+    line-height: 1.45;
+    font-variant-numeric: tabular-nums;
   }
-  .article-excerpt {
+  .article-facts p {
     margin: 0;
-    color: var(--fg-soft);
-    font-size: 0.9rem;
-    line-height: 1.6;
   }
-  .article-summary {
-    margin: 0.55rem 0 0;
-    padding: 0.6rem 0.85rem;
-    background: var(--card);
-    border-left: 2px solid var(--link);
-    border-radius: 0.3rem;
-    font-size: 0.9rem;
-    line-height: 1.6;
-    color: var(--fg);
+  .article-body {
+    min-width: 0;
+    width: 100%;
+    display: grid;
+    gap: 0.8rem;
   }
+  .article-excerpt-card,
+  .article-summary-card {
+    position: relative;
+    width: 100%;
+    padding: 0.95rem 1.1rem 0.95rem 1.25rem;
+    border: 1px solid var(--rule);
+    border-radius: 0.95rem;
+    overflow: hidden;
+  }
+  .article-excerpt-card {
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--cool) 55%, transparent), transparent 78%),
+      var(--card);
+  }
+  .article-summary-card {
+    background:
+      linear-gradient(90deg, color-mix(in srgb, var(--accent) 8%, transparent), transparent 78%),
+      color-mix(in srgb, var(--bg-elevated) 72%, var(--card));
+  }
+  .article-excerpt-card::before,
+  .article-summary-card::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 3px;
+    opacity: 0.78;
+  }
+  .article-excerpt-card::before { background: var(--cool-strong); }
+  .article-summary-card::before { background: var(--accent); }
+  .excerpt-label,
   .summary-label {
     display: inline-block;
+    margin-bottom: 0.38rem;
     font-size: 0.68rem;
-    color: var(--link);
-    margin-right: 0.4rem;
-    font-weight: 600;
-    text-transform: uppercase;
+    font-weight: 720;
     letter-spacing: 0.08em;
+    text-transform: uppercase;
   }
+  .excerpt-label { color: var(--cool-strong); }
+  .summary-label { color: var(--accent); }
+  .article-excerpt,
+  .article-summary {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.7;
+    max-width: none;
+    text-wrap: pretty;
+  }
+  .article-excerpt { color: var(--fg-soft); }
+  .article-summary { color: var(--fg); }
 
   .empty {
     color: var(--muted);
@@ -938,278 +1368,94 @@ export function renderHtml(
     font-size: 0.9rem;
   }
 
-  /* ===== trading panel ===== */
-  .crypto-widgets {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.55rem;
-    margin: 0.4rem 0 1.2rem;
-  }
-  @media (min-width: 720px) {
-    .crypto-widgets { grid-template-columns: repeat(4, 1fr); }
-  }
-  .crypto-widget {
-    background: var(--bg-elevated);
-    border: 1px solid var(--rule);
-    border-radius: 0.5rem;
-    padding: 0.7rem 0.85rem;
-    text-align: center;
-  }
-  .widget-label {
-    font-size: 0.7rem;
-    color: var(--muted);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-bottom: 0.3rem;
-  }
-  .widget-value {
-    font-size: 1.5rem;
-    font-weight: 700;
-    font-variant-numeric: tabular-nums;
-    color: var(--fg);
-    line-height: 1.1;
-  }
-  .widget-sub {
-    font-size: 0.78rem;
-    color: var(--muted);
-    margin-top: 0.25rem;
-  }
-  .widget-sub.positive { color: #16a34a; }
-  .widget-sub.negative { color: #dc2626; }
-  @media (prefers-color-scheme: dark) {
-    .widget-sub.positive { color: #4ade80; }
-    .widget-sub.negative { color: #fca5a5; }
-  }
-  .crypto-widget.fg-fear-extreme { border-left: 4px solid #b91c1c; }
-  .crypto-widget.fg-fear-extreme .widget-value { color: #b91c1c; }
-  .crypto-widget.fg-fear { border-left: 4px solid #d97706; }
-  .crypto-widget.fg-fear .widget-value { color: #d97706; }
-  .crypto-widget.fg-neutral { border-left: 4px solid var(--muted); }
-  .crypto-widget.fg-greed { border-left: 4px solid #65a30d; }
-  .crypto-widget.fg-greed .widget-value { color: #65a30d; }
-  .crypto-widget.fg-greed-extreme { border-left: 4px solid #16a34a; }
-  .crypto-widget.fg-greed-extreme .widget-value { color: #16a34a; }
-  @media (prefers-color-scheme: dark) {
-    .crypto-widget.fg-fear-extreme .widget-value,
-    .crypto-widget.fg-fear .widget-value { color: #fca5a5; }
-    .crypto-widget.fg-greed .widget-value,
-    .crypto-widget.fg-greed-extreme .widget-value { color: #4ade80; }
-  }
-
-  .trading-overview-card {
-    margin: 0 0 1.5rem;
-    padding: 1rem 1.3rem;
-    background: var(--card);
-    border-radius: 0.5rem;
-    border-left: 3px solid var(--accent);
-  }
-  .trading-overview-card .eyebrow { display: block; margin-bottom: 0.4rem; }
-  .trading-overview-text { font-size: 0.92rem; line-height: 1.75; color: var(--fg-soft); margin: 0; }
-
-  .trading-section-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    margin: 1.5rem 0 0.8rem;
-    padding-bottom: 0.4rem;
-    border-bottom: 1px solid var(--rule);
-    color: var(--fg);
-    letter-spacing: 0.05em;
-  }
-
-  /* picks (Sonnet's watchlist) */
-  .trading-picks {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 0.6rem;
-  }
-  @media (min-width: 720px) {
-    .trading-picks { grid-template-columns: 1fr 1fr; }
-  }
-  .trading-pick {
-    background: var(--bg-elevated);
-    border: 1px solid var(--rule);
-    border-left: 4px solid var(--muted);
-    border-radius: 0.5rem;
-    padding: 0.8rem 1rem;
-  }
-  .trading-pick.stance-bull { border-left-color: #16a34a; }
-  .trading-pick.stance-bear { border-left-color: #dc2626; }
-  .trading-pick.stance-neutral { border-left-color: var(--muted); }
-  .pick-head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.6rem;
-    margin-bottom: 0.45rem;
-  }
-  .pick-symbol-block {
-    display: flex;
-    align-items: baseline;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-  }
-  .pick-symbol { font-weight: 700; font-size: 1rem; color: var(--fg); }
-  .pick-name { color: var(--muted); font-size: 0.82rem; }
-  .pick-stance {
-    font-size: 0.75rem;
-    font-weight: 600;
-    padding: 0.2rem 0.6rem;
-    border-radius: 999px;
-    white-space: nowrap;
-  }
-  .pick-stance-bull { background: rgba(22,163,74,0.12); color: #16a34a; }
-  .pick-stance-bear { background: rgba(220,38,38,0.12); color: #dc2626; }
-  .pick-stance-neutral { background: var(--card); color: var(--muted); }
-  .pick-rationale { margin: 0; font-size: 0.88rem; line-height: 1.65; color: var(--fg-soft); }
-
-  /* asset-group tabs */
-  .trading-group-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.4rem;
-    margin: 0.6rem 0 1.2rem;
-  }
-  .trading-group-tab {
-    background: var(--card);
-    border: 1px solid transparent;
-    padding: 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-size: 0.88rem;
-    font-weight: 500;
-    color: var(--fg-soft);
-    cursor: pointer;
-    font-family: inherit;
-    transition: all 0.15s;
-  }
-  .trading-group-tab:hover { border-color: var(--muted); color: var(--fg); }
-  .trading-group-tab.active {
-    background: var(--accent);
-    color: var(--accent-fg);
-  }
-  .trading-group-tab .count {
-    font-size: 0.7rem;
-    opacity: 0.75;
-    margin-left: 0.4rem;
-    font-weight: 400;
-  }
-  .trading-group-content { display: none; }
-  .trading-group-content.active { display: block; }
-
-  /* ticker cards */
-  .ticker-card {
-    background: var(--bg-elevated);
-    border: 1px solid var(--rule);
-    border-radius: 0.55rem;
-    padding: 0.85rem 1.1rem;
-    margin-bottom: 0.7rem;
-  }
-  .ticker-head {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 1rem;
-    margin-bottom: 0.65rem;
-  }
-  .ticker-id { min-width: 0; }
-  .ticker-symbol { margin: 0; font-size: 1rem; font-weight: 700; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace; }
-  .ticker-name { margin: 0.15rem 0 0; font-size: 0.82rem; color: var(--muted); }
-  .ticker-price-block { text-align: right; flex-shrink: 0; }
-  .ticker-price { display: block; font-size: 1.05rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-  .ticker-pct { display: inline-block; font-size: 0.82rem; font-weight: 500; margin-top: 0.15rem; font-variant-numeric: tabular-nums; }
-  .ticker-pct.positive, .positive { color: #16a34a; }
-  .ticker-pct.negative, .negative { color: #dc2626; }
-
-  .ticker-indicators {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 0.35rem 0.9rem;
-    margin: 0;
-    font-size: 0.82rem;
-    color: var(--fg-soft);
-  }
-  @media (min-width: 720px) {
-    .ticker-indicators { grid-template-columns: repeat(3, 1fr); }
-  }
-  .ticker-indicators > div { display: flex; gap: 0.4rem; align-items: baseline; min-width: 0; }
-  .ticker-indicators dt { color: var(--muted); font-size: 0.74rem; margin: 0; white-space: nowrap; }
-  .ticker-indicators dd { margin: 0; font-variant-numeric: tabular-nums; font-weight: 500; color: var(--fg); }
-  .trend-bullish { color: #16a34a; }
-  .trend-bearish { color: #dc2626; }
-  .trend-neutral { color: var(--muted); }
-  .rsi-overbought { color: #d97706; }
-  .rsi-oversold { color: #2563eb; }
-
-  .ticker-signals {
-    margin-top: 0.65rem;
-    padding-top: 0.55rem;
-    border-top: 1px dashed var(--rule);
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-  }
-  .signal-pill {
-    font-size: 0.72rem;
-    padding: 0.18rem 0.55rem;
-    border-radius: 999px;
-    font-weight: 500;
-  }
-  .signal-pill.tone-bull { background: rgba(22,163,74,0.13); color: #166534; }
-  .signal-pill.tone-bear { background: rgba(220,38,38,0.13); color: #991b1b; }
-  .signal-pill.tone-caution { background: rgba(217,119,6,0.15); color: #92400e; }
-  @media (prefers-color-scheme: dark) {
-    .signal-pill.tone-bull { color: #4ade80; }
-    .signal-pill.tone-bear { color: #fca5a5; }
-    .signal-pill.tone-caution { color: #fcd34d; }
-    .trend-bullish, .positive, .ticker-pct.positive { color: #4ade80; }
-    .trend-bearish, .negative, .ticker-pct.negative { color: #fca5a5; }
-    .rsi-overbought { color: #fcd34d; }
-    .rsi-oversold { color: #93c5fd; }
-    .trading-pick.stance-bull { border-left-color: #4ade80; }
-    .trading-pick.stance-bear { border-left-color: #fca5a5; }
-    .pick-stance-bull { background: rgba(74,222,128,0.15); color: #4ade80; }
-    .pick-stance-bear { background: rgba(252,165,165,0.15); color: #fca5a5; }
-  }
-  .signal-age { opacity: 0.7; font-weight: 400; }
-
-  .trading-risk {
-    margin: 1.5rem 0 0;
-    padding: 0.9rem 1.2rem;
-    background: var(--card);
-    border-radius: 0.45rem;
-    border-left: 3px solid #d97706;
-  }
-  .trading-risk .eyebrow { display: block; margin-bottom: 0.35rem; }
-  .trading-risk p { margin: 0; font-size: 0.82rem; line-height: 1.65; color: var(--fg-soft); }
-
   footer {
-    margin-top: 2.5rem;
+    margin-top: 4rem;
     border-top: 1px solid var(--rule);
-    padding-top: 1.1rem;
+    padding-top: 1.4rem;
     color: var(--muted);
     font-size: 0.82rem;
+  }
+  @media (max-width: 760px) {
+    main { width: min(100% - 1.1rem, 1180px); padding-top: 1.3rem; }
+    header.report-header {
+      min-height: 0;
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+      padding-bottom: 1.15rem;
+    }
+    .header-top {
+      grid-template-columns: 1fr;
+      gap: 0.65rem;
+    }
+    h1.report-title { font-size: clamp(2.25rem, 12vw, 3.6rem); }
+    .date-details {
+      justify-content: flex-start;
+      gap: 0.32rem;
+      margin: 0;
+    }
+    .date-chip { padding: 0.32rem 0.5rem; }
+    .date-chip-sub { white-space: normal; }
+    .hero-card { border-radius: 0.9rem; }
+    .hero-card {
+      grid-template-columns: 1fr;
+      gap: 0.6rem;
+    }
+    .topic-grid { grid-template-columns: 1fr; }
+    .tabs { margin-inline: -0.15rem; }
+    .article {
+      grid-template-columns: 1fr;
+      gap: 0.6rem;
+    }
+    .article-title { font-size: 1.22rem; }
   }
 </style>
 </head>
 <body>
+<a class="skip-link" href="#content">Skip to content</a>
 <main>
   <header class="report-header">
-    <span class="eyebrow">${STR.siteTitle}</span>
-    <h1 class="report-title">${date}</h1>
-    ${process.env.WEB_MODE === "true" ? `<a class="archive-link" href="../archive.html">${STR.archiveLink}</a>` : ""}
+    <div class="header-top">
+      <div class="date-stack">
+      <h1 class="report-title">${STR.reportHeading}</h1>
+      ${process.env.WEB_MODE === "true" ? `<a class="archive-link" href="../archive.html">${STR.archiveLink}</a>` : ""}
+      </div>
+      <div class="date-details" aria-label="${escapeHtml(dateDisplay.fullDate)}">
+        <div class="date-chip">
+          <span class="date-chip-label">${STR.weekdayLabel}</span>
+          <span class="date-chip-value">${escapeHtml(dateDisplay.weekday)}</span>
+          <span class="date-chip-sub">${escapeHtml(dateDisplay.fullDate)}</span>
+        </div>
+        ${dateDisplay.lunar ? `<div class="date-chip">
+          <span class="date-chip-label">${STR.lunarLabel}</span>
+          <span class="date-chip-value">${escapeHtml(dateDisplay.lunar)}</span>
+        </div>` : ""}
+        <div class="date-chip">
+          <span class="date-chip-label">${STR.solarTermLabel}</span>
+          <span class="date-chip-value">${dateDisplay.solarTermToday ? escapeHtml(dateDisplay.solarTermToday) : STR.noSolarTerm}</span>
+          ${dateDisplay.nextSolarTerm ? `<span class="date-chip-sub">${STR.nextSolarTermLabel} · ${escapeHtml(dateDisplay.nextSolarTermDate)} ${escapeHtml(dateDisplay.nextSolarTerm)}</span>` : ""}
+        </div>
+      </div>
+    </div>
+    <section class="hero-card" aria-label="${STR.topicOverviewLabel}">
+      <span class="hero-eyebrow">${STR.topicOverviewLabel}</span>
+      <div class="topic-grid">
+        ${renderTopicOverviewCards(topicOverviews)}
+      </div>
+    </section>
   </header>
 
-  <nav class="tabs" role="tablist">
+  <nav class="tabs" role="tablist" aria-label="${STR.siteTitle}">
     <button class="tab active" data-tab="tech">${CATEGORY_LABELS.tech}<span class="count">${counts.tech}</span></button>
-    ${trading ? `<button class="tab" data-tab="trading">${STR.catTrading}<span class="count">${trading.tickers.length}</span></button>` : ""}
+    ${showTradingPanel && trading ? `<button class="tab" data-tab="trading">${STR.catTrading}<span class="count">${trading.tickers.length}</span></button>` : ""}
     <button class="tab" data-tab="politics">${CATEGORY_LABELS.politics}<span class="count">${counts.politics}</span></button>
     <button class="tab" data-tab="finance">${CATEGORY_LABELS.finance}<span class="count">${counts.finance}</span></button>
     ${techCommunitySubs.length > 0 ? `<button class="tab" data-tab="community">${STR.catCommunity}<span class="count">${counts.community}</span></button>` : ""}
   </nav>
 
-  <section class="panel active" data-panel="tech">
+  <section id="content" class="panel active" data-panel="tech">
     ${renderRawCategoryPanel("tech", techMainSubs)}
   </section>
-  ${trading ? `<section class="panel" data-panel="trading">${renderTradingPanel(trading)}</section>` : ""}
+  ${showTradingPanel && trading ? `<section class="panel" data-panel="trading">${renderTradingPanel(trading)}</section>` : ""}
   <section class="panel" data-panel="politics">
     ${renderRawCategoryPanel("politics", raw.politics)}
   </section>
@@ -1262,18 +1508,6 @@ export function renderHtml(
       });
       subContent.querySelectorAll('.source-content').forEach(function (p) {
         p.classList.toggle('active', p.dataset.sourceContent === src);
-      });
-    });
-  });
-  // Trading panel: asset-group sub-tabs (US/crypto/china/commodity)
-  document.querySelectorAll('.trading-group-tab').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      var grp = btn.dataset.group;
-      document.querySelectorAll('.trading-group-tab').forEach(function (b) {
-        b.classList.toggle('active', b === btn);
-      });
-      document.querySelectorAll('.trading-group-content').forEach(function (p) {
-        p.classList.toggle('active', p.dataset.group === grp);
       });
     });
   });
