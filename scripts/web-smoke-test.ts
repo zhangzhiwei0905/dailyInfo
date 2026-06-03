@@ -11,5 +11,7 @@ assert.equal(fs.existsSync("prisma/schema.prisma"), true);
 assert.equal(fs.existsSync("lib/db/prisma.ts"), true);
 assert.equal(fs.existsSync("lib/db/source-repository.ts"), true);
 assert.equal(fs.existsSync("lib/web/generation-service.ts"), true);
+assert.equal(fs.existsSync("lib/db/report-repository.ts"), true);
+assert.equal(fs.existsSync("lib/web/report-persistence.ts"), true);
 
 console.log("[web-smoke-test] ok");
