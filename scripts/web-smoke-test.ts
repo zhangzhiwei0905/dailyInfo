@@ -16,6 +16,7 @@ const requiredFiles = [
   "app/page.tsx",
   "app/globals.css",
   "app/archive/page.tsx",
+  "app/report/route.ts",
   "app/reports/[date]/route.ts",
   "app/admin/(protected)/page.tsx",
   "app/admin/login/page.tsx",
@@ -57,6 +58,16 @@ assert.match(loginPage, /headers/);
 assert.match(loginPage, /hasAdminSession/);
 assert.match(loginPage, /canonicalizeLocalhost/);
 assert.equal(loginPage.includes("loginAction"), false);
+
+const reportShell = fs.readFileSync("components/public/ReportShell.tsx", "utf8");
+assert.match(reportShell, /href: "\/"/);
+assert.match(reportShell, /href: "\/report"/);
+assert.match(reportShell, /href: "\/archive"/);
+assert.match(reportShell, /href: "\/admin"/);
+
+const latestReportRoute = fs.readFileSync("app/report/route.ts", "utf8");
+assert.match(latestReportRoute, /listReadyReports/);
+assert.match(latestReportRoute, /\/reports\/\$\{latest\.dateKey\}/);
 
 const sourcesPage = fs.readFileSync("app/admin/(protected)/sources/page.tsx", "utf8");
 assert.equal(sourcesPage.includes('target="_blank"'), false);
@@ -171,8 +182,18 @@ assert.match(pipelineSource, /fallbackTopicSummary/);
 
 const adminLayout = fs.readFileSync("app/admin/(protected)/layout.tsx", "utf8");
 assert.equal(adminLayout.includes('href="/admin/logout"'), false);
+assert.match(adminLayout, /href: "\/"/);
+assert.match(adminLayout, /href: "\/report"/);
+assert.match(adminLayout, /href: "\/admin\/sources"/);
+assert.match(adminLayout, /href: "\/admin\/runs"/);
 assert.match(adminLayout, /action="\/admin\/logout"/);
 assert.match(adminLayout, /method="post"/);
+
+const adminHome = fs.readFileSync("app/admin/(protected)/page.tsx", "utf8");
+assert.match(adminHome, /href="\/admin\/sources"/);
+assert.match(adminHome, /href="\/admin\/runs"/);
+assert.match(adminHome, /源管理/);
+assert.match(adminHome, /生成记录/);
 
 const logoutRoute = fs.readFileSync("app/admin/logout/route.ts", "utf8");
 assert.equal(logoutRoute.includes("export async function GET"), false);
