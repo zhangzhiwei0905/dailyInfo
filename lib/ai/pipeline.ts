@@ -58,6 +58,55 @@ const PER_CATEGORY_LIMIT: Record<Category, number> = {
 
 const MAX_AGE_DAYS = 14;
 
+function briefListForCategory(report: DailyReport, category: Category): BriefItem[] {
+  if (category === "tech") return report.tech_briefs;
+  if (category === "finance") return report.finance_briefs;
+  return report.politics_briefs;
+}
+
+function fallbackTopicSummary(
+  category: Category,
+  report: DailyReport,
+  articles: ArticleInput[],
+): string {
+  const fromBriefs = briefListForCategory(report, category)
+    .filter((brief) => brief.summary)
+    .sort((a, b) => (b.importance ?? 0) - (a.importance ?? 0))
+    .slice(0, 2)
+    .map((brief) => brief.summary.trim())
+    .join(" ");
+  if (fromBriefs) return fromBriefs;
+
+  const fromArticles = articles
+    .filter((article) => article.category === category)
+    .slice(0, 3)
+    .map((article) => article.summary || article.excerpt || article.title)
+    .filter(Boolean)
+    .join(" ");
+  if (fromArticles) return fromArticles;
+
+  if (category === "finance") return "财经源已抓取完成，但暂未形成明确主线，可继续查看下方财经条目。";
+  return "该主题源已抓取完成，但暂未形成明确主线，可继续查看下方原始条目。";
+}
+
+function ensureTopicOverviews(report: DailyReport, articles: ArticleInput[]): DailyReport {
+  const existing = new Map<Category, string>();
+  for (const item of report.topic_overviews ?? []) {
+    if (item.category === "tech" || item.category === "finance" || item.category === "politics") {
+      const summary = item.summary?.trim();
+      if (summary) existing.set(item.category, summary);
+    }
+  }
+
+  return {
+    ...report,
+    topic_overviews: (["tech", "finance", "politics"] as Category[]).map((category) => ({
+      category,
+      summary: existing.get(category) ?? fallbackTopicSummary(category, report, articles),
+    })),
+  };
+}
+
 /**
  * Pick `limit` items from `items` so every source gets a fair shot.
  *
@@ -240,6 +289,7 @@ export async function generateDailyReport(
     );
     report = await callOnce(userPayloadJson);
   }
+  report = ensureTopicOverviews(report, articles);
 
   // Max subscription has no per-call token meter — we expose 0 for schema
   // compatibility; consumers should treat 0 as "metric not available".

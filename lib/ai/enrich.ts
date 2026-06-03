@@ -207,12 +207,64 @@ Output STRICTLY a JSON object, no markdown:
 
 **Quote rule (important!)**: For any quotation INSIDE a summary string, use single quotes ' or curly quotes '" — **never** a raw double quote, which breaks JSON parsing.`;
 
+const GENERAL_ARTICLE_SYSTEM_PROMPT_ZH = `你是一名中文新闻编辑，为每日简报中的每一条原文生成**中文 AI 总结**。
+
+输入：每条内容有 url、title、excerpt、source。
+
+任务：根据 title + excerpt 生成 45-90 字中文摘要：
+  - 不管原文是中文还是英文，输出都必须是中文
+  - 提炼事实重点，不复述标题，不写空泛评论
+  - 保留关键人物、机构、产品、地区、数字
+  - 信息不足时宁可短，不要补充原文没有的信息
+
+输出严格 JSON 对象，不要 markdown：
+{
+  "summaries": [
+    { "url": "<原 url，从输入中精确复制>", "summary": "<45-90 字中文摘要>" },
+    ...
+  ]
+}
+
+**引号规则（重要！）**：summary 内的引用一律用中文全角引号「」或""，**绝不**用英文双引号 \" —— 否则会导致 JSON 解析失败。`;
+
+const GENERAL_ARTICLE_SYSTEM_PROMPT_EN = `You are an English news editor producing **AI summaries** for every article in a daily brief.
+
+Input: each item has url, title, excerpt, source.
+
+Task: write a 45-90 word English summary from title + excerpt:
+  - Output must be English regardless of source language
+  - Extract factual points; do not merely restate the headline
+  - Preserve key people, organizations, products, regions, and numbers
+  - If information is thin, keep it short rather than inventing details
+
+Output STRICTLY a JSON object, no markdown:
+{
+  "summaries": [
+    { "url": "<exact url from input>", "summary": "<45-90 word English summary>" },
+    ...
+  ]
+}
+
+**Quote rule (important!)**: For any quotation INSIDE a summary string, use single quotes ' or curly quotes '" — **never** a raw double quote, which breaks JSON parsing.`;
+
 // Pick the right localized prompt set at module init. Each enricher reaches
 // in via PROMPTS.<key> so the call sites stay locale-agnostic.
 const PROMPTS =
   REPORT_LOCALE === "en"
-    ? { gh: GH_SYSTEM_PROMPT_EN, finance: FINANCE_SYSTEM_PROMPT_EN, xViral: XVIRAL_SYSTEM_PROMPT_EN, papers: PAPERS_SYSTEM_PROMPT_EN }
-    : { gh: GH_SYSTEM_PROMPT_ZH, finance: FINANCE_SYSTEM_PROMPT_ZH, xViral: XVIRAL_SYSTEM_PROMPT_ZH, papers: PAPERS_SYSTEM_PROMPT_ZH };
+    ? {
+        gh: GH_SYSTEM_PROMPT_EN,
+        finance: FINANCE_SYSTEM_PROMPT_EN,
+        xViral: XVIRAL_SYSTEM_PROMPT_EN,
+        papers: PAPERS_SYSTEM_PROMPT_EN,
+        article: GENERAL_ARTICLE_SYSTEM_PROMPT_EN,
+      }
+    : {
+        gh: GH_SYSTEM_PROMPT_ZH,
+        finance: FINANCE_SYSTEM_PROMPT_ZH,
+        xViral: XVIRAL_SYSTEM_PROMPT_ZH,
+        papers: PAPERS_SYSTEM_PROMPT_ZH,
+        article: GENERAL_ARTICLE_SYSTEM_PROMPT_ZH,
+      };
 
 const USER_PROMPT_HEADER =
   REPORT_LOCALE === "en"
@@ -365,4 +417,17 @@ export async function enrichTrendingPapersSummaries(
     excerpt: (it.excerpt ?? "").slice(0, 300),
   }));
   return runEnrichment(payload, PROMPTS.papers, "papers summaries");
+}
+
+export async function enrichArticleSummaries(
+  items: EnrichInput[],
+): Promise<Map<string, string>> {
+  if (items.length === 0) return new Map();
+  const payload = items.map((it) => ({
+    url: it.url,
+    title: it.title,
+    source: it.source ?? "",
+    excerpt: (it.excerpt ?? "").slice(0, 320),
+  }));
+  return runEnrichment(payload, PROMPTS.article, "article summaries");
 }

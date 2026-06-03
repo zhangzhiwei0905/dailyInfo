@@ -60,3 +60,9 @@ export async function runGeneration(input: {
     inProcess = false;
   }
 }
+
+export function startManualGeneration(input: { date: string; locale: Locale }): void {
+  void runGeneration({ ...input, trigger: "manual" }).catch((error) => {
+    console.error("[generation] manual generation failed", error);
+  });
+}

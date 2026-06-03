@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import {
+  enrichArticleSummaries,
   enrichFinanceNewsSummaries,
   enrichGithubTrendingSummaries,
   enrichTrendingPapersSummaries,
@@ -150,6 +151,46 @@ async function enrichXViral(
   }
 }
 
+function fallbackArticleSummary(article: ArticleInput): string {
+  const source = article.source ? `${article.source}：` : "";
+  const detail = article.excerpt?.trim() || article.title;
+  return `${source}${detail}`.replace(/\s+/g, " ").slice(0, 180);
+}
+
+async function applyArticleSummaries(
+  batch: ArticleInput[],
+  log: (line: string) => void,
+): Promise<void> {
+  const summaries = await enrichArticleSummaries(batch);
+  for (const article of batch) {
+    const summary = summaries.get(article.url);
+    if (summary) article.summary = summary;
+  }
+
+  const stillMissing = batch.filter((article) => !article.summary);
+  if (stillMissing.length === 0) return;
+
+  log(`[daily] retrying article summaries one by one: ${stillMissing.length}`);
+  for (const article of stillMissing) {
+    const retry = await enrichArticleSummaries([article]);
+    article.summary = retry.get(article.url) || fallbackArticleSummary(article);
+  }
+}
+
+async function enrichMissingArticleSummaries(
+  articles: ArticleInput[],
+  log: (line: string) => void,
+): Promise<void> {
+  const missing = articles.filter((article) => !article.summary);
+  if (missing.length === 0) return;
+  const summaryBatchSize = 15;
+  log(`[daily] enriching ${missing.length} article summaries`);
+  for (let i = 0; i < missing.length; i += summaryBatchSize) {
+    const batch = missing.slice(i, i + summaryBatchSize);
+    await applyArticleSummaries(batch, log);
+  }
+}
+
 async function runTrading(log: (line: string) => void): Promise<TradingSection | null> {
   log("[daily] analyzing watchlist + crypto context");
   const [tickers, cryptoFearGreed, cryptoGlobal] = await Promise.all([
@@ -207,6 +248,7 @@ export async function generateDailyBrief(
   await enrichMergedSubgroup(articles, options.sources, "politics", "world", log);
   await enrichMergedSubgroup(articles, options.sources, "tech", "ai-news", log);
   await enrichXViral(articles, log);
+  await enrichMissingArticleSummaries(articles, log);
 
   let trading: TradingSection | null = null;
   if (options.includeTrading !== false) {

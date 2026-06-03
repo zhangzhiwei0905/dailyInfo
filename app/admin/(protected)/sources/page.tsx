@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db/prisma";
-import { saveSourceAction, testSourceAction } from "./actions";
+import { SourceEnabledToggle } from "@/components/admin/SourceEnabledToggle";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +12,18 @@ function categoryLabel(category: string): string {
 export default async function SourcesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; tested?: string }>;
+  searchParams: Promise<{ category?: string; error?: string; tested?: string }>;
 }) {
   const [params, sources] = await Promise.all([
     searchParams,
     prisma.source.findMany({ orderBy: [{ category: "asc" }, { id: "asc" }] }),
   ]);
+  const categoryFilter =
+    params.category === "tech" || params.category === "finance" || params.category === "politics"
+      ? params.category
+      : "all";
+  const visibleSources =
+    categoryFilter === "all" ? sources : sources.filter((source) => source.category === categoryFilter);
   const enabledCount = sources.filter((source) => source.enabled).length;
   const counts = {
     tech: sources.filter((source) => source.category === "tech").length,
@@ -64,6 +70,30 @@ export default async function SourcesPage({
         </p>
       ) : null}
 
+      <form className="mt-6 flex flex-wrap items-center gap-2" method="get">
+        <span className="mr-1 text-sm font-semibold text-neutral-500">分类筛选</span>
+        {[
+          ["all", "全部分类"],
+          ["tech", "技术"],
+          ["finance", "财经"],
+          ["politics", "时政"],
+        ].map(([value, label]) => (
+          <button
+            key={value}
+            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+              categoryFilter === value
+                ? "bg-neutral-950 text-white shadow-sm shadow-neutral-900/15"
+                : "border border-black/10 bg-white/80 text-neutral-700 hover:-translate-y-0.5 hover:bg-neutral-100"
+            }`}
+            name="category"
+            type="submit"
+            value={value}
+          >
+            {label}
+          </button>
+        ))}
+      </form>
+
       <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_360px]">
         <div className="overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-black/10">
           <div className="grid grid-cols-[1.4fr_.65fr_.75fr_.6fr_auto] gap-3 border-b border-black/10 bg-neutral-100/80 px-4 py-3 text-xs font-semibold text-neutral-500">
@@ -73,7 +103,7 @@ export default async function SourcesPage({
             <span>状态</span>
             <span className="text-right">操作</span>
           </div>
-          {sources.map((source) => (
+          {visibleSources.map((source) => (
             <details key={source.id} className="group border-b border-black/10 last:border-b-0">
               <summary className="grid cursor-pointer list-none grid-cols-[1.4fr_.65fr_.75fr_.6fr_auto] items-center gap-3 px-4 py-3 transition hover:bg-neutral-50">
                 <div className="min-w-0">
@@ -82,24 +112,23 @@ export default async function SourcesPage({
                 </div>
                 <span className="text-sm text-neutral-700">{categoryLabel(source.category)}</span>
                 <span className="font-mono text-xs text-neutral-500">{source.locales.join(", ")}</span>
-                <span className={source.enabled ? "text-sm font-medium text-emerald-700" : "text-sm font-medium text-neutral-400"}>
-                  {source.enabled ? "启用" : "停用"}
-                </span>
+                <SourceEnabledToggle id={source.id} name={source.name} enabled={source.enabled} />
                 <span className="text-right text-sm font-semibold text-neutral-950 group-open:hidden">编辑</span>
                 <span className="hidden text-right text-sm font-semibold text-neutral-500 group-open:block">收起</span>
               </summary>
 
               <div className="border-t border-black/5 bg-neutral-50/70 px-4 py-4">
-                <form action={testSourceAction} className="mb-4 flex justify-end">
+                <form action="/admin/sources/test" method="post" className="mb-4 flex justify-end">
                   <input type="hidden" name="id" value={source.id} />
                   <button className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-neutral-950 hover:text-white active:translate-y-0" type="submit">
                     测试抓取
                   </button>
                 </form>
-                <form action={saveSourceAction} className="grid gap-4">
+                <form action="/admin/sources/save" method="post" className="grid gap-4">
                   <input type="hidden" name="mode" value="update" />
                   <input type="hidden" name="id" value={source.id} />
                   <input type="hidden" name="type" value={source.type} />
+                  <input type="hidden" name="enabled" value={source.enabled ? "on" : "off"} />
                   <div className="grid gap-4 md:grid-cols-2">
                     <label className="grid gap-1 text-sm font-semibold">名称<input name="name" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.name} required /></label>
                     <label className="grid gap-1 text-sm font-semibold">URL<input name="url" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.url} required /></label>
@@ -111,22 +140,31 @@ export default async function SourcesPage({
                   </div>
                   <label className="grid gap-1 text-sm font-semibold">备注<textarea name="notes" className="min-h-20 rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.notes ?? ""} /></label>
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="flex flex-wrap gap-4">
-                      <label className="flex items-center gap-2 text-sm font-semibold"><input name="enabled" type="checkbox" defaultChecked={source.enabled} /> 启用</label>
-                      <label className="flex items-center gap-2 text-sm font-semibold"><input name="useCurl" type="checkbox" defaultChecked={source.useCurl} /> 使用 curl</label>
-                    </div>
+                    <label className="flex items-center gap-2 text-sm font-semibold"><input name="useCurl" type="checkbox" defaultChecked={source.useCurl} /> 使用 curl</label>
                     <button className="rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-neutral-800 active:translate-y-0" type="submit">保存修改</button>
                   </div>
+                </form>
+                <form action="/admin/sources/delete" method="post" className="mt-4 border-t border-black/10 pt-4">
+                  <input type="hidden" name="id" value={source.id} />
+                  <button
+                    className="rounded-full border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition hover:-translate-y-0.5 hover:bg-red-100 active:translate-y-0"
+                    type="submit"
+                  >
+                    删除源
+                  </button>
                 </form>
               </div>
             </details>
           ))}
+          {visibleSources.length === 0 ? (
+            <div className="px-4 py-12 text-center text-sm font-medium text-neutral-500">当前分类暂无源。</div>
+          ) : null}
         </div>
 
         <aside className="self-start rounded-2xl bg-neutral-950 p-5 text-white shadow-sm shadow-neutral-900/20 xl:sticky xl:top-6">
           <h2 className="text-xl font-semibold">新增 RSS 源</h2>
           <p className="mt-2 text-sm leading-6 text-neutral-400">先补最少字段，保存后可在列表里继续完善关键词和备注。</p>
-          <form action={saveSourceAction} className="mt-5 grid gap-3">
+          <form action="/admin/sources/save" method="post" className="mt-5 grid gap-3">
             <input type="hidden" name="mode" value="create" />
             <input type="hidden" name="type" value="rss" />
             <label className="grid gap-1 text-sm font-semibold">ID<input name="id" className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white" required /></label>

@@ -2,7 +2,7 @@ import crypto from "node:crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 
-const COOKIE_NAME = "dailybrief_admin_v2";
+export const ADMIN_COOKIE_NAME = "dailybrief_admin_v2";
 
 function secret(): string {
   const value = process.env.SESSION_SECRET;
@@ -18,6 +18,15 @@ function adminPassword(): string {
 
 function adminCookieSecure(): boolean {
   return process.env.ADMIN_COOKIE_SECURE === "true";
+}
+
+export function adminSessionCookieOptions() {
+  return {
+    httpOnly: true,
+    sameSite: "lax" as const,
+    secure: adminCookieSecure(),
+    path: "/",
+  };
 }
 
 function sign(value: string): string {
@@ -45,27 +54,22 @@ export function verifySessionValue(value: string | undefined): boolean {
 
 export async function setAdminSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, createSessionValue(), {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: adminCookieSecure(),
-    path: "/",
-  });
+  cookieStore.set(ADMIN_COOKIE_NAME, createSessionValue(), adminSessionCookieOptions());
 }
 
 export async function clearAdminSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.delete(COOKIE_NAME);
+  cookieStore.delete(ADMIN_COOKIE_NAME);
 }
 
 export async function requireAdmin(): Promise<void> {
   const cookieStore = await cookies();
-  if (!verifySessionValue(cookieStore.get(COOKIE_NAME)?.value)) {
+  if (!verifySessionValue(cookieStore.get(ADMIN_COOKIE_NAME)?.value)) {
     redirect("/admin/login");
   }
 }
 
 export async function hasAdminSession(): Promise<boolean> {
   const cookieStore = await cookies();
-  return verifySessionValue(cookieStore.get(COOKIE_NAME)?.value);
+  return verifySessionValue(cookieStore.get(ADMIN_COOKIE_NAME)?.value);
 }

@@ -1,7 +1,13 @@
-import { redirect } from "next/navigation";
 import { clearAdminSession } from "@/lib/web/auth";
 
-export async function GET() {
+function redirectTo(path: string) {
+  return new Response(null, {
+    status: 303,
+    headers: { Location: path },
+  });
+}
+
+export async function POST() {
   await clearAdminSession();
-  redirect("/admin/login");
+  return redirectTo("/admin/login");
 }

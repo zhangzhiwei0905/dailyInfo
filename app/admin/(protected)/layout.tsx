@@ -14,7 +14,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         <nav className="flex gap-4 text-sm text-neutral-600">
           <Link href="/admin/sources">源管理</Link>
           <Link href="/admin/runs">生成记录</Link>
-          <Link href="/admin/logout">退出</Link>
+          <form action="/admin/logout" method="post">
+            <button className="text-neutral-600" type="submit">
+              退出
+            </button>
+          </form>
         </nav>
       </header>
       {children}

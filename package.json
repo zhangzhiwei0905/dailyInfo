@@ -10,6 +10,7 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx scripts/import-sources.ts",
     "sources:import": "tsx scripts/import-sources.ts",
     "worker": "tsx scripts/worker.ts",
     "dry-run": "tsx scripts/dry-run.ts",

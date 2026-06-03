@@ -5,8 +5,8 @@ import { groupRaw, renderHtml } from "../lib/output/render";
 import { sources } from "../lib/sources/registry";
 
 const sampleArticle: ArticleInput = {
-  sourceId: "github-trending",
-  source: "GitHub Trending",
+  sourceId: "qbitai",
+  source: "量子位",
   title: "A focused local news workflow",
   url: "https://example.com/news",
   excerpt: "A compact article used to exercise the HTML renderer.",
