@@ -1,30 +1,37 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 
-assert.equal(fs.existsSync("app/layout.tsx"), true);
-assert.equal(fs.existsSync("app/page.tsx"), true);
-assert.equal(fs.existsSync("app/globals.css"), true);
-assert.equal(fs.existsSync("app/archive/page.tsx"), true);
-assert.equal(fs.existsSync("app/reports/[date]/route.ts"), true);
-assert.equal(fs.existsSync("components/public/ReportShell.tsx"), true);
-assert.equal(fs.existsSync("next.config.mjs"), true);
-assert.equal(fs.existsSync("postcss.config.mjs"), true);
-assert.equal(fs.existsSync("tailwind.config.ts"), true);
-assert.equal(fs.existsSync("prisma/schema.prisma"), true);
-assert.equal(fs.existsSync("lib/db/prisma.ts"), true);
-assert.equal(fs.existsSync("lib/db/source-repository.ts"), true);
-assert.equal(fs.existsSync("lib/web/generation-service.ts"), true);
-assert.equal(fs.existsSync("lib/db/report-repository.ts"), true);
-assert.equal(fs.existsSync("lib/web/report-persistence.ts"), true);
-assert.equal(fs.existsSync("lib/web/auth.ts"), true);
-assert.equal(fs.existsSync("app/admin/login/page.tsx"), true);
-assert.equal(fs.existsSync("lib/web/source-validation.ts"), true);
-assert.equal(fs.existsSync("app/admin/(protected)/sources/page.tsx"), true);
-assert.equal(fs.existsSync("lib/web/run-service.ts"), true);
-assert.equal(fs.existsSync("scripts/worker.ts"), true);
-assert.equal(fs.existsSync("app/admin/(protected)/runs/page.tsx"), true);
-assert.equal(fs.existsSync("Dockerfile"), true);
-assert.equal(fs.existsSync("docker-compose.yml"), true);
-assert.equal(fs.existsSync(".dockerignore"), true);
+const requiredFiles = [
+  "app/layout.tsx",
+  "app/page.tsx",
+  "app/globals.css",
+  "app/archive/page.tsx",
+  "app/reports/[date]/route.ts",
+  "app/admin/(protected)/page.tsx",
+  "app/admin/login/page.tsx",
+  "app/admin/(protected)/sources/page.tsx",
+  "app/admin/(protected)/runs/page.tsx",
+  "components/public/ReportShell.tsx",
+  "next.config.mjs",
+  "postcss.config.mjs",
+  "tailwind.config.ts",
+  "prisma/schema.prisma",
+  "lib/db/prisma.ts",
+  "lib/db/source-repository.ts",
+  "lib/db/report-repository.ts",
+  "lib/web/auth.ts",
+  "lib/web/generation-service.ts",
+  "lib/web/report-persistence.ts",
+  "lib/web/run-service.ts",
+  "lib/web/source-validation.ts",
+  "scripts/worker.ts",
+  "Dockerfile",
+  "docker-compose.yml",
+  ".dockerignore",
+];
+
+for (const file of requiredFiles) {
+  assert.equal(fs.existsSync(file), true, `${file} should exist`);
+}
 
 console.log("[web-smoke-test] ok");
