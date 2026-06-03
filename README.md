@@ -395,6 +395,71 @@ npm run regen-enrich -- finance:news
 
 ## 🌐 自托管部署（可选）
 
+如果你希望 DailyBrief 不是“本地生成 HTML 后手动打开”，而是可以部署到自己的服务器并通过域名访问，推荐使用 Docker Compose Web 版。它会启动：
+
+- `web`：Next.js 页面，公开访问首页、历史归档和每日简报
+- `worker`：按 `DAILY_RUN_TIME` 每天自动生成简报
+- `postgres`：保存源配置、历史简报、生成记录
+
+### Docker Compose Web 版
+
+准备 `.env`（Docker Compose 默认读取 `.env`）：
+
+```bash
+cp .env.example .env
+```
+
+至少修改这些值：
+
+```bash
+LLM_BACKEND=deepseek
+DEEPSEEK_API_KEY=sk-...
+ADMIN_PASSWORD=your-admin-password
+SESSION_SECRET=replace-with-a-long-random-string
+REPORT_TZ=Asia/Shanghai
+DAILY_RUN_TIME=07:30
+```
+
+启动：
+
+```bash
+docker compose up --build -d
+```
+
+打开：
+
+- `http://localhost:3000/`：首页，展示最新简报
+- `http://localhost:3000/archive`：历史简报
+- `http://localhost:3000/admin`：后台登录
+- `http://localhost:3000/admin/sources`：源管理、启停、测试抓取
+- `http://localhost:3000/admin/runs`：生成记录、手动生成今日简报
+
+第一次启动时，容器会执行数据库迁移，并把 `sources.config.json` 导入 PostgreSQL。之后在后台修改源会写入数据库；`sources.config.json` 仍作为首次导入和代码仓库默认配置。
+
+绑定域名时，在 Nginx 或 Caddy 中把域名反向代理到 `127.0.0.1:3000` 即可。Nginx 示例：
+
+```nginx
+server {
+    listen 80;
+    server_name daily.example.com;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+生产环境建议用 `certbot --nginx -d daily.example.com --redirect` 或 Caddy 自动签发 HTTPS。
+
+### 静态 HTML 自动发布
+
+下面这一节是旧的轻量自托管方式：每次 `npm run daily` 跑完，只把新 HTML 推到自己的服务器，适合不需要后台源管理和数据库的人。
+
 每次 `npm run daily` 跑完，自动把新 HTML 推到自己的服务器，访客打开 `https://your-domain/` 就能看到当天最新报告。**默认不启用**，环境变量不设就跳过。
 
 ### 一次性服务器准备
@@ -918,6 +983,53 @@ Working: `[regen-enrich] enrichment done in 28s, matched 12/12`. Broken: the sta
 ---
 
 ## 🌐 Self-hosted deployment (optional)
+
+If you want DailyBrief to run as a real web app instead of locally generating HTML files, use the Docker Compose web deployment. It starts:
+
+- `web`: Next.js pages for the latest report, archive, and admin UI
+- `worker`: scheduled daily generation using `DAILY_RUN_TIME`
+- `postgres`: source settings, report history, and generation runs
+
+### Docker Compose web app
+
+Create `.env` (Docker Compose reads `.env` by default):
+
+```bash
+cp .env.example .env
+```
+
+Set at least:
+
+```bash
+LLM_BACKEND=deepseek
+DEEPSEEK_API_KEY=sk-...
+ADMIN_PASSWORD=your-admin-password
+SESSION_SECRET=replace-with-a-long-random-string
+REPORT_TZ=Asia/Shanghai
+DAILY_RUN_TIME=07:30
+```
+
+Start:
+
+```bash
+docker compose up --build -d
+```
+
+Open:
+
+- `http://localhost:3000/`: latest report
+- `http://localhost:3000/archive`: report history
+- `http://localhost:3000/admin`: admin login
+- `http://localhost:3000/admin/sources`: edit, enable, disable, and test sources
+- `http://localhost:3000/admin/runs`: generation history and manual trigger
+
+On startup, the containers run migrations and import `sources.config.json` into PostgreSQL. After that, source edits in the admin UI are stored in the database; `sources.config.json` remains the default import seed.
+
+To use your own domain, reverse proxy it to `127.0.0.1:3000` with Nginx or Caddy, then enable HTTPS.
+
+### Static HTML auto-deploy
+
+The section below is the older lightweight self-hosted path: each daily run pushes only the generated HTML to your server. Use it when you do not need source management or database-backed history.
 
 After each `npm run daily`, automatically scp the fresh HTML to your own server; visitors hit `https://your-domain/` and see today's report. **Disabled by default** — leave the env vars unset to skip.
 

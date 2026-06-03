@@ -23,5 +23,8 @@ assert.equal(fs.existsSync("app/admin/(protected)/sources/page.tsx"), true);
 assert.equal(fs.existsSync("lib/web/run-service.ts"), true);
 assert.equal(fs.existsSync("scripts/worker.ts"), true);
 assert.equal(fs.existsSync("app/admin/(protected)/runs/page.tsx"), true);
+assert.equal(fs.existsSync("Dockerfile"), true);
+assert.equal(fs.existsSync("docker-compose.yml"), true);
+assert.equal(fs.existsSync(".dockerignore"), true);
 
 console.log("[web-smoke-test] ok");

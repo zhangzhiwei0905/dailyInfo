@@ -1,0 +1,10 @@
+node_modules
+.next
+.git
+daily_reports
+logs
+.env
+.env.local
+.superpowers
+.omx
+docs/superpowers/plans
