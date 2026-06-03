@@ -16,5 +16,7 @@ assert.equal(fs.existsSync("lib/db/source-repository.ts"), true);
 assert.equal(fs.existsSync("lib/web/generation-service.ts"), true);
 assert.equal(fs.existsSync("lib/db/report-repository.ts"), true);
 assert.equal(fs.existsSync("lib/web/report-persistence.ts"), true);
+assert.equal(fs.existsSync("lib/web/auth.ts"), true);
+assert.equal(fs.existsSync("app/admin/login/page.tsx"), true);
 
 console.log("[web-smoke-test] ok");
