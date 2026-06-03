@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "test": "tsx scripts/render-smoke-test.ts && tsx scripts/web-smoke-test.ts",
+    "test": "tsx scripts/render-smoke-test.ts && tsx scripts/web-smoke-test.ts && tsx scripts/rss-excerpt-smoke-test.ts",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",

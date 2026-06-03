@@ -9,5 +9,5 @@ export async function GET(request: Request) {
   if (!latest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
-  return NextResponse.redirect(new URL(`/reports/${latest.dateKey}`, request.url));
+  return NextResponse.redirect(new URL(`/report/${latest.dateKey}`, request.url));
 }

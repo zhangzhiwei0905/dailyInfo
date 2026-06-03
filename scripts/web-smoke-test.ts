@@ -17,6 +17,7 @@ const requiredFiles = [
   "app/globals.css",
   "app/archive/page.tsx",
   "app/report/route.ts",
+  "app/report/[date]/route.ts",
   "app/reports/[date]/route.ts",
   "app/admin/(protected)/page.tsx",
   "app/admin/login/page.tsx",
@@ -29,6 +30,7 @@ const requiredFiles = [
   "components/admin/SourceEnabledToggle.tsx",
   "app/admin/(protected)/runs/page.tsx",
   "app/admin/(protected)/runs/today/route.ts",
+  "components/public/MainNavigation.tsx",
   "components/public/ReportShell.tsx",
   "next.config.mjs",
   "postcss.config.mjs",
@@ -59,15 +61,43 @@ assert.match(loginPage, /hasAdminSession/);
 assert.match(loginPage, /canonicalizeLocalhost/);
 assert.equal(loginPage.includes("loginAction"), false);
 
+const mainNavigation = fs.readFileSync("components/public/MainNavigation.tsx", "utf8");
+assert.match(mainNavigation, /"use client"/);
+assert.match(mainNavigation, /usePathname/);
+assert.match(mainNavigation, /href: "\/report"/);
+assert.match(mainNavigation, /href: "\/archive"/);
+assert.match(mainNavigation, /href: "\/admin"/);
+assert.match(mainNavigation, /fixed/);
+assert.match(mainNavigation, /top-4/);
+assert.match(mainNavigation, /z-50/);
+assert.equal(mainNavigation.includes('href: "/"'), false);
+assert.match(mainNavigation, /pathname === "\/" \|\| pathname === "\/report" \|\| pathname\.startsWith\("\/report\/"\)/);
+assert.match(mainNavigation, /pathname\.startsWith\("\/admin"\)/);
+assert.match(mainNavigation, /action="\/admin\/logout"/);
+assert.match(mainNavigation, /method="post"/);
+assert.match(mainNavigation, /!pathname\.startsWith\("\/admin\/login"\)/);
+
+const rootLayout = fs.readFileSync("app/layout.tsx", "utf8");
+assert.match(rootLayout, /MainNavigation/);
+assert.match(rootLayout, /body className="min-h-dvh/);
+assert.match(rootLayout, /main-nav-spacer/);
+
 const reportShell = fs.readFileSync("components/public/ReportShell.tsx", "utf8");
-assert.match(reportShell, /href: "\/"/);
-assert.match(reportShell, /href: "\/report"/);
-assert.match(reportShell, /href: "\/archive"/);
-assert.match(reportShell, /href: "\/admin"/);
+assert.equal(reportShell.includes("MainNavigation"), false);
+
+const homePage = fs.readFileSync("app/page.tsx", "utf8");
+assert.match(homePage, /redirect/);
+assert.match(homePage, /listReadyReports/);
+assert.match(homePage, /`\/report\/\$\{latest\.dateKey\}`/);
+assert.equal(homePage.includes("ReportShell"), false);
 
 const latestReportRoute = fs.readFileSync("app/report/route.ts", "utf8");
 assert.match(latestReportRoute, /listReadyReports/);
-assert.match(latestReportRoute, /\/reports\/\$\{latest\.dateKey\}/);
+assert.match(latestReportRoute, /\/report\/\$\{latest\.dateKey\}/);
+
+const datedReportRoute = fs.readFileSync("app/report/[date]/route.ts", "utf8");
+assert.match(datedReportRoute, /findReportHtml/);
+assert.match(datedReportRoute, /content-type/);
 
 const sourcesPage = fs.readFileSync("app/admin/(protected)/sources/page.tsx", "utf8");
 assert.equal(sourcesPage.includes('target="_blank"'), false);
@@ -182,12 +212,11 @@ assert.match(pipelineSource, /fallbackTopicSummary/);
 
 const adminLayout = fs.readFileSync("app/admin/(protected)/layout.tsx", "utf8");
 assert.equal(adminLayout.includes('href="/admin/logout"'), false);
-assert.match(adminLayout, /href: "\/"/);
-assert.match(adminLayout, /href: "\/report"/);
-assert.match(adminLayout, /href: "\/admin\/sources"/);
-assert.match(adminLayout, /href: "\/admin\/runs"/);
-assert.match(adminLayout, /action="\/admin\/logout"/);
-assert.match(adminLayout, /method="post"/);
+assert.equal(adminLayout.includes("MainNavigation"), false);
+assert.equal(adminLayout.includes('href: "/report"'), false);
+assert.equal(adminLayout.includes('href: "/admin/sources"'), false);
+assert.equal(adminLayout.includes('href: "/admin/runs"'), false);
+assert.match(adminLayout, /requireAdmin/);
 
 const adminHome = fs.readFileSync("app/admin/(protected)/page.tsx", "utf8");
 assert.match(adminHome, /href="\/admin\/sources"/);

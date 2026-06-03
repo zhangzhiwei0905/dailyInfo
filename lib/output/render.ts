@@ -15,6 +15,7 @@ import {
   ASSET_GROUP_ORDER,
   type AssetGroup,
 } from "../trading/watchlist";
+import { renderReportSiteNav, reportSiteNavStyles } from "./site-nav";
 
 // ----- i18n -----
 
@@ -1408,11 +1409,13 @@ export function renderHtml(
     }
     .article-title { font-size: 1.22rem; }
   }
+${reportSiteNavStyles()}
 </style>
 </head>
 <body>
 <a class="skip-link" href="#content">Skip to content</a>
-<main>
+<main class="main-nav-spacer">
+  ${renderReportSiteNav(date)}
   <header class="report-header">
     <div class="header-top">
       <div class="date-stack">

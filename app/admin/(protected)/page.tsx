@@ -71,9 +71,9 @@ export default async function AdminHomePage() {
             </Link>
             <Link
               className="rounded-full px-5 py-3 text-sm font-semibold text-neutral-600 transition hover:-translate-y-0.5 hover:text-neutral-950 focus:outline-none focus:ring-2 focus:ring-neutral-950/20 active:translate-y-0"
-              href="/report"
+              href="/"
             >
-              查看最新简报
+              回到首页
             </Link>
           </div>
         </div>

@@ -13,7 +13,7 @@ export default async function ArchivePage() {
         {reports.map((report) => (
           <Link
             key={report.dateKey}
-            href={`/reports/${report.dateKey}`}
+            href={`/report/${report.dateKey}`}
             className="rounded-xl border border-black/10 bg-white/60 p-4 transition hover:-translate-y-0.5 hover:bg-white"
           >
             <div className="font-semibold">{report.dateKey}</div>

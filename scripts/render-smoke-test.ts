@@ -87,6 +87,14 @@ assert.match(html, /<div class="date-details"[\s\S]*?<span class="date-chip-valu
 assert.match(html, /<div class="date-details"[\s\S]*?<span class="date-chip-value">今日无节气<\/span>/);
 assert.match(html, /下一节气 · 6月6日 芒种/);
 assert.match(html, /<span class="hero-eyebrow">主题速览<\/span>/);
+assert.match(html, /<main class="main-nav-spacer">/);
+assert.match(html, /<nav class="site-nav" aria-label="站点导航">/);
+assert.match(html, /position: fixed/);
+assert.match(html, /top: 1rem/);
+assert.match(html, /<a class="site-brand" href="\/report">/);
+assert.match(html, /href="\/report" aria-current="page"[\s\S]*?首页/);
+assert.match(html, /href="\/archive"[\s\S]*?历史归档/);
+assert.match(html, /href="\/admin"[\s\S]*?管理后台/);
 assert.match(html, /<article class="topic-card topic-tech">[\s\S]*?Tech sources point to a calmer workflow layer for builders\./);
 assert.match(html, /<article class="topic-card topic-finance">[\s\S]*?Finance has no dominant thread in this fixture\./);
 assert.equal(html.includes('<p class="hero-headline">One calm brief for the day</p>'), false);

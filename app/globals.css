@@ -19,3 +19,13 @@ body {
     "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB",
     "Microsoft YaHei", sans-serif;
 }
+
+.main-nav-spacer {
+  padding-top: 8.5rem;
+}
+
+@media (min-width: 768px) {
+  .main-nav-spacer {
+    padding-top: 6.75rem;
+  }
+}
