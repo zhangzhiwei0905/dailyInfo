@@ -7,5 +7,8 @@ assert.equal(fs.existsSync("app/globals.css"), true);
 assert.equal(fs.existsSync("next.config.mjs"), true);
 assert.equal(fs.existsSync("postcss.config.mjs"), true);
 assert.equal(fs.existsSync("tailwind.config.ts"), true);
+assert.equal(fs.existsSync("prisma/schema.prisma"), true);
+assert.equal(fs.existsSync("lib/db/prisma.ts"), true);
+assert.equal(fs.existsSync("lib/db/source-repository.ts"), true);
 
 console.log("[web-smoke-test] ok");

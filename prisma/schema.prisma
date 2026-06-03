@@ -1,0 +1,108 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum SourceType {
+  rss
+  api
+  scrape
+}
+
+enum Category {
+  tech
+  finance
+  politics
+}
+
+enum Locale {
+  zh
+  en
+}
+
+enum ReportStatus {
+  generating
+  ready
+  failed
+}
+
+enum RunTrigger {
+  schedule
+  manual
+  startup
+}
+
+enum RunStatus {
+  running
+  success
+  failed
+}
+
+model Source {
+  id          String     @id
+  name        String
+  type        SourceType
+  url         String
+  category    Category
+  subcategory String?
+  enabled     Boolean    @default(true)
+  useCurl     Boolean    @default(false)
+  lang        Locale?
+  locales     String[]   @default(["zh", "en"])
+  keywords    String[]   @default([])
+  notes       String?
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Report {
+  id          String          @id @default(cuid())
+  dateKey     String
+  locale      Locale
+  status      ReportStatus    @default(generating)
+  reportJson  Json?
+  html        String?
+  summary     String?
+  generatedAt DateTime?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  articles    ReportArticle[]
+  runs        GenerationRun[]
+
+  @@unique([dateKey, locale])
+}
+
+model ReportArticle {
+  id          String   @id @default(cuid())
+  reportId    String
+  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  sourceId    String
+  sourceName  String
+  category    Category
+  title       String
+  url         String
+  excerpt     String?
+  summary     String?
+  meta        String?
+  publishedAt DateTime?
+  rawJson     Json?
+}
+
+model GenerationRun {
+  id            String     @id @default(cuid())
+  reportId      String?
+  report        Report?    @relation(fields: [reportId], references: [id], onDelete: SetNull)
+  dateKey       String
+  locale        Locale
+  trigger       RunTrigger
+  status        RunStatus   @default(running)
+  startedAt     DateTime    @default(now())
+  finishedAt    DateTime?
+  articlesCount Int?
+  llmBackend    String?
+  errorMessage  String?
+  logExcerpt    String?
+}
