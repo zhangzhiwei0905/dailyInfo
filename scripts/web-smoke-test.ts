@@ -34,4 +34,11 @@ for (const file of requiredFiles) {
   assert.equal(fs.existsSync(file), true, `${file} should exist`);
 }
 
+const sourceActions = fs.readFileSync("app/admin/(protected)/sources/actions.ts", "utf8");
+assert.match(sourceActions, /export async function testSourceAction/);
+
+const sourcesPage = fs.readFileSync("app/admin/(protected)/sources/page.tsx", "utf8");
+assert.equal(sourcesPage.includes('target="_blank"'), false);
+assert.match(sourcesPage, /<details/);
+
 console.log("[web-smoke-test] ok");

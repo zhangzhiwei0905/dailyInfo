@@ -2,6 +2,8 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db/prisma";
+import { sourceToDef } from "@/lib/db/source-repository";
+import { fetchSource } from "@/lib/sources/dispatch";
 import { requireAdmin } from "@/lib/web/auth";
 import { sourceFromFormData, validateSource } from "@/lib/web/source-validation";
 
@@ -53,4 +55,22 @@ export async function saveSourceAction(formData: FormData) {
     },
   });
   redirect("/admin/sources");
+}
+
+export async function testSourceAction(formData: FormData) {
+  await requireAdmin();
+  const id = String(formData.get("id") ?? "");
+  const source = await prisma.source.findUnique({ where: { id } });
+  if (!source) {
+    redirect(`/admin/sources?error=${encodeURIComponent("source not found")}`);
+  }
+
+  try {
+    const items = await fetchSource(sourceToDef(source));
+    const sample = items[0]?.title ? ` · ${items[0].title.slice(0, 60)}` : "";
+    redirect(`/admin/sources?tested=${encodeURIComponent(`${source.name}: ${items.length} 条${sample}`)}`);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    redirect(`/admin/sources?error=${encodeURIComponent(`${source.name}: ${message}`)}`);
+  }
 }

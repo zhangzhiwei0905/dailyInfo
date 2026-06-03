@@ -1,74 +1,143 @@
 import { prisma } from "@/lib/db/prisma";
-import { saveSourceAction } from "./actions";
+import { saveSourceAction, testSourceAction } from "./actions";
 
 export const dynamic = "force-dynamic";
+
+function categoryLabel(category: string): string {
+  if (category === "tech") return "技术";
+  if (category === "finance") return "财经";
+  return "时政";
+}
 
 export default async function SourcesPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; tested?: string }>;
 }) {
   const [params, sources] = await Promise.all([
     searchParams,
     prisma.source.findMany({ orderBy: [{ category: "asc" }, { id: "asc" }] }),
   ]);
+  const enabledCount = sources.filter((source) => source.enabled).length;
+  const counts = {
+    tech: sources.filter((source) => source.category === "tech").length,
+    finance: sources.filter((source) => source.category === "finance").length,
+    politics: sources.filter((source) => source.category === "politics").length,
+  };
+
   return (
-    <section>
-      <div className="flex items-end justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-bold">源管理</h1>
-          <p className="mt-2 text-neutral-700">新增 RSS 源，编辑已有源，启停并测试抓取结果。</p>
+    <section className="pb-12">
+      <div className="grid gap-5 border-b border-black/10 pb-6 lg:grid-cols-[1fr_auto] lg:items-end">
+        <div className="max-w-2xl">
+          <p className="text-sm font-semibold text-neutral-500">DailyBrief Admin</p>
+          <h1 className="mt-2 text-4xl font-semibold tracking-normal text-neutral-950">源管理</h1>
+          <p className="mt-3 text-base leading-7 text-neutral-700">
+            管理抓取入口、启停来源并测试连通性。默认只展示关键信息，展开后再编辑细节。
+          </p>
+        </div>
+        <div className="grid grid-cols-4 overflow-hidden rounded-2xl bg-neutral-950 text-white shadow-sm shadow-neutral-900/10">
+          <div className="px-4 py-3">
+            <p className="text-xs text-neutral-400">总数</p>
+            <p className="mt-1 font-mono text-xl font-semibold">{sources.length}</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-xs text-neutral-400">启用</p>
+            <p className="mt-1 font-mono text-xl font-semibold">{enabledCount}</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-xs text-neutral-400">技术</p>
+            <p className="mt-1 font-mono text-xl font-semibold">{counts.tech}</p>
+          </div>
+          <div className="px-4 py-3">
+            <p className="text-xs text-neutral-400">财经/时政</p>
+            <p className="mt-1 font-mono text-xl font-semibold">{counts.finance + counts.politics}</p>
+          </div>
         </div>
       </div>
-      {params.error ? <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">{params.error}</p> : null}
 
-      <div className="mt-8 grid gap-6 lg:grid-cols-[1fr_380px]">
-        <div className="grid gap-4">
+      {params.error ? (
+        <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{params.error}</p>
+      ) : null}
+      {params.tested ? (
+        <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
+          测试成功：{params.tested}
+        </p>
+      ) : null}
+
+      <div className="mt-8 grid gap-6 xl:grid-cols-[1fr_360px]">
+        <div className="overflow-hidden rounded-2xl bg-white/80 shadow-sm ring-1 ring-black/10">
+          <div className="grid grid-cols-[1.4fr_.65fr_.75fr_.6fr_auto] gap-3 border-b border-black/10 bg-neutral-100/80 px-4 py-3 text-xs font-semibold text-neutral-500">
+            <span>来源</span>
+            <span>分类</span>
+            <span>语言</span>
+            <span>状态</span>
+            <span className="text-right">操作</span>
+          </div>
           {sources.map((source) => (
-            <form key={source.id} action={saveSourceAction} className="grid gap-3 rounded-2xl border border-black/10 bg-white/70 p-4">
-              <input type="hidden" name="mode" value="update" />
-              <input type="hidden" name="id" value={source.id} />
-              <div className="flex items-center justify-between gap-3">
+            <details key={source.id} className="group border-b border-black/10 last:border-b-0">
+              <summary className="grid cursor-pointer list-none grid-cols-[1.4fr_.65fr_.75fr_.6fr_auto] items-center gap-3 px-4 py-3 transition hover:bg-neutral-50">
                 <div className="min-w-0">
-                  <p className="font-semibold">{source.name}</p>
-                  <p className="truncate text-xs text-neutral-500">{source.id} · {source.type} · {source.category}</p>
+                  <p className="truncate text-sm font-semibold text-neutral-950">{source.name}</p>
+                  <p className="mt-0.5 truncate font-mono text-xs text-neutral-500">{source.id}</p>
                 </div>
-                <a className="shrink-0 text-sm font-semibold underline" href={`/api/admin/sources/${source.id}/test`} target="_blank">
-                  测试
-                </a>
+                <span className="text-sm text-neutral-700">{categoryLabel(source.category)}</span>
+                <span className="font-mono text-xs text-neutral-500">{source.locales.join(", ")}</span>
+                <span className={source.enabled ? "text-sm font-medium text-emerald-700" : "text-sm font-medium text-neutral-400"}>
+                  {source.enabled ? "启用" : "停用"}
+                </span>
+                <span className="text-right text-sm font-semibold text-neutral-950 group-open:hidden">编辑</span>
+                <span className="hidden text-right text-sm font-semibold text-neutral-500 group-open:block">收起</span>
+              </summary>
+
+              <div className="border-t border-black/5 bg-neutral-50/70 px-4 py-4">
+                <form action={testSourceAction} className="mb-4 flex justify-end">
+                  <input type="hidden" name="id" value={source.id} />
+                  <button className="rounded-full border border-black/10 bg-white px-4 py-2 text-sm font-semibold transition hover:-translate-y-0.5 hover:bg-neutral-950 hover:text-white active:translate-y-0" type="submit">
+                    测试抓取
+                  </button>
+                </form>
+                <form action={saveSourceAction} className="grid gap-4">
+                  <input type="hidden" name="mode" value="update" />
+                  <input type="hidden" name="id" value={source.id} />
+                  <input type="hidden" name="type" value={source.type} />
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <label className="grid gap-1 text-sm font-semibold">名称<input name="name" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.name} required /></label>
+                    <label className="grid gap-1 text-sm font-semibold">URL<input name="url" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.url} required /></label>
+                    <label className="grid gap-1 text-sm font-semibold">分类<select name="category" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.category}><option value="tech">技术</option><option value="finance">财经</option><option value="politics">时政</option></select></label>
+                    <label className="grid gap-1 text-sm font-semibold">子分类<input name="subcategory" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.subcategory ?? ""} /></label>
+                    <label className="grid gap-1 text-sm font-semibold">Locales<input name="locales" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.locales.join(",")} /></label>
+                    <label className="grid gap-1 text-sm font-semibold">关键词<input name="keywords" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.keywords.join(",")} /></label>
+                    <label className="grid gap-1 text-sm font-semibold">语言<select name="lang" className="rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.lang ?? ""}><option value="">默认英文</option><option value="zh">中文</option><option value="en">英文</option></select></label>
+                  </div>
+                  <label className="grid gap-1 text-sm font-semibold">备注<textarea name="notes" className="min-h-20 rounded-xl border border-black/10 bg-white px-3 py-2" defaultValue={source.notes ?? ""} /></label>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-4">
+                      <label className="flex items-center gap-2 text-sm font-semibold"><input name="enabled" type="checkbox" defaultChecked={source.enabled} /> 启用</label>
+                      <label className="flex items-center gap-2 text-sm font-semibold"><input name="useCurl" type="checkbox" defaultChecked={source.useCurl} /> 使用 curl</label>
+                    </div>
+                    <button className="rounded-full bg-neutral-950 px-5 py-2.5 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:bg-neutral-800 active:translate-y-0" type="submit">保存修改</button>
+                  </div>
+                </form>
               </div>
-              <label className="grid gap-1 text-sm font-semibold">名称<input name="name" className="rounded-lg border px-3 py-2" defaultValue={source.name} required /></label>
-              <input type="hidden" name="type" value={source.type} />
-              <label className="grid gap-1 text-sm font-semibold">URL<input name="url" className="rounded-lg border px-3 py-2" defaultValue={source.url} required /></label>
-              <label className="grid gap-1 text-sm font-semibold">分类<select name="category" className="rounded-lg border px-3 py-2" defaultValue={source.category}><option value="tech">技术</option><option value="finance">财经</option><option value="politics">时政</option></select></label>
-              <label className="grid gap-1 text-sm font-semibold">子分类<input name="subcategory" className="rounded-lg border px-3 py-2" defaultValue={source.subcategory ?? ""} /></label>
-              <label className="grid gap-1 text-sm font-semibold">Locales<input name="locales" className="rounded-lg border px-3 py-2" defaultValue={source.locales.join(",")} /></label>
-              <label className="grid gap-1 text-sm font-semibold">关键词<input name="keywords" className="rounded-lg border px-3 py-2" defaultValue={source.keywords.join(",")} /></label>
-              <label className="grid gap-1 text-sm font-semibold">语言<select name="lang" className="rounded-lg border px-3 py-2" defaultValue={source.lang ?? ""}><option value="">默认英文</option><option value="zh">中文</option><option value="en">英文</option></select></label>
-              <label className="flex items-center gap-2 text-sm font-semibold"><input name="enabled" type="checkbox" defaultChecked={source.enabled} /> 启用</label>
-              <label className="flex items-center gap-2 text-sm font-semibold"><input name="useCurl" type="checkbox" defaultChecked={source.useCurl} /> 使用 curl</label>
-              <label className="grid gap-1 text-sm font-semibold">备注<textarea name="notes" className="rounded-lg border px-3 py-2" defaultValue={source.notes ?? ""} /></label>
-              <button className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white" type="submit">保存修改</button>
-            </form>
+            </details>
           ))}
         </div>
 
-        <form action={saveSourceAction} className="grid gap-3 rounded-2xl border border-black/10 bg-white/70 p-5">
-          <input type="hidden" name="mode" value="create" />
+        <aside className="self-start rounded-2xl bg-neutral-950 p-5 text-white shadow-sm shadow-neutral-900/20 xl:sticky xl:top-6">
           <h2 className="text-xl font-semibold">新增 RSS 源</h2>
-          <label className="grid gap-1 text-sm font-semibold">ID<input name="id" className="rounded-lg border px-3 py-2" required /></label>
-          <label className="grid gap-1 text-sm font-semibold">名称<input name="name" className="rounded-lg border px-3 py-2" required /></label>
-          <input type="hidden" name="type" value="rss" />
-          <label className="grid gap-1 text-sm font-semibold">URL<input name="url" type="url" className="rounded-lg border px-3 py-2" required /></label>
-          <label className="grid gap-1 text-sm font-semibold">分类<select name="category" className="rounded-lg border px-3 py-2" defaultValue="tech"><option value="tech">技术</option><option value="finance">财经</option><option value="politics">时政</option></select></label>
-          <label className="grid gap-1 text-sm font-semibold">子分类<input name="subcategory" className="rounded-lg border px-3 py-2" /></label>
-          <label className="grid gap-1 text-sm font-semibold">Locales<input name="locales" className="rounded-lg border px-3 py-2" defaultValue="zh,en" /></label>
-          <label className="grid gap-1 text-sm font-semibold">关键词<input name="keywords" className="rounded-lg border px-3 py-2" /></label>
-          <label className="flex items-center gap-2 text-sm font-semibold"><input name="enabled" type="checkbox" defaultChecked /> 启用</label>
-          <label className="flex items-center gap-2 text-sm font-semibold"><input name="useCurl" type="checkbox" /> 使用 curl</label>
-          <label className="grid gap-1 text-sm font-semibold">备注<textarea name="notes" className="rounded-lg border px-3 py-2" /></label>
-          <button className="rounded-full bg-black px-5 py-2.5 text-sm font-semibold text-white" type="submit">保存</button>
-        </form>
+          <p className="mt-2 text-sm leading-6 text-neutral-400">先补最少字段，保存后可在列表里继续完善关键词和备注。</p>
+          <form action={saveSourceAction} className="mt-5 grid gap-3">
+            <input type="hidden" name="mode" value="create" />
+            <input type="hidden" name="type" value="rss" />
+            <label className="grid gap-1 text-sm font-semibold">ID<input name="id" className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white" required /></label>
+            <label className="grid gap-1 text-sm font-semibold">名称<input name="name" className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white" required /></label>
+            <label className="grid gap-1 text-sm font-semibold">URL<input name="url" type="url" className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white" required /></label>
+            <label className="grid gap-1 text-sm font-semibold">分类<select name="category" className="rounded-xl border border-white/10 bg-white/10 px-3 py-2 text-white" defaultValue="tech"><option value="tech">技术</option><option value="finance">财经</option><option value="politics">时政</option></select></label>
+            <input type="hidden" name="locales" value="zh,en" />
+            <label className="flex items-center gap-2 text-sm font-semibold"><input name="enabled" type="checkbox" defaultChecked /> 启用</label>
+            <button className="mt-2 rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-neutral-950 transition hover:-translate-y-0.5 hover:bg-neutral-200 active:translate-y-0" type="submit">保存新源</button>
+          </form>
+        </aside>
       </div>
     </section>
   );
