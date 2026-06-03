@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "tsx scripts/render-smoke-test.ts && tsx scripts/web-smoke-test.ts",
+    "db:generate": "prisma generate",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "sources:import": "tsx scripts/import-sources.ts",
+    "worker": "tsx scripts/worker.ts",
     "dry-run": "tsx scripts/dry-run.ts",
     "daily": "tsx scripts/daily.ts",
     "render": "tsx scripts/render.ts",
@@ -17,14 +26,22 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.96.0",
+    "@prisma/client": "^7.8.0",
     "cheerio": "^1.2.0",
     "jsonrepair": "^3.14.0",
+    "next": "^16.2.7",
     "openai": "^6.38.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
     "rss-parser": "^3.13.0"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "^4.3.0",
     "@types/node": "^20",
+    "autoprefixer": "^10.5.0",
     "dotenv": "^17.4.2",
+    "prisma": "^7.8.0",
+    "tailwindcss": "^4.3.0",
     "tsx": "^4.21.0",
     "typescript": "^5"
   }

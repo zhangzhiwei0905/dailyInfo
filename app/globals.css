@@ -1,0 +1,21 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #f6f4ef;
+  --fg: #111111;
+  --muted: #77746b;
+  --rule: rgba(20, 20, 18, 0.11);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, "SF Pro Display",
+    "SF Pro Text", "Segoe UI", "PingFang SC", "Hiragino Sans GB",
+    "Microsoft YaHei", sans-serif;
+}

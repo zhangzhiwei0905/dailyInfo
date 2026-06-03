@@ -1,6 +1,9 @@
 # dependencies
 /node_modules
 
+# next
+/.next/
+
 # OS
 .DS_Store
 
@@ -21,3 +24,4 @@
 
 # screenshot originals (only the cropped versions are committed)
 /docs/screenshots/originals/
+.omx/
