@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
 import { sourceToDef } from "@/lib/db/source-repository";
 import { fetchSource } from "@/lib/sources/dispatch";
-import { requireAdmin } from "@/lib/web/auth";
+import { hasAdminSession } from "@/lib/web/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,9 @@ export async function GET(
   _request: Request,
   context: { params: Promise<{ id: string }> },
 ) {
-  await requireAdmin();
+  if (!(await hasAdminSession())) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
   const { id } = await context.params;
   const source = await prisma.source.findUnique({ where: { id } });
   if (!source) return NextResponse.json({ error: "source not found" }, { status: 404 });

@@ -41,4 +41,8 @@ const sourcesPage = fs.readFileSync("app/admin/(protected)/sources/page.tsx", "u
 assert.equal(sourcesPage.includes('target="_blank"'), false);
 assert.match(sourcesPage, /<details/);
 
+const sourceTestRoute = fs.readFileSync("app/api/admin/sources/[id]/test/route.ts", "utf8");
+assert.equal(sourceTestRoute.includes("requireAdmin"), false);
+assert.match(sourceTestRoute, /status: 401/);
+
 console.log("[web-smoke-test] ok");

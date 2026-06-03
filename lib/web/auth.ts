@@ -60,3 +60,8 @@ export async function requireAdmin(): Promise<void> {
     redirect("/admin/login");
   }
 }
+
+export async function hasAdminSession(): Promise<boolean> {
+  const cookieStore = await cookies();
+  return verifySessionValue(cookieStore.get(COOKIE_NAME)?.value);
+}
