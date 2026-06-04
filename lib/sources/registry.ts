@@ -25,9 +25,9 @@ import type { SourceDef } from "./types";
  * rather than delete so the "why we don't use this" history is preserved.
  *
  * Subcategory determines L2 grouping in the rendered HTML:
- *   tech    → github-trending / ai-news / x-viral (cn-community renders as L1)
- *   finance → news
- *   politics → no L2 split (subcategory omitted)
+ *   tech     → github-trending / ai-news / blog-weekly (cn-community renders as L1)
+ *   finance  → china-finance / global-business / macro-economy
+ *   politics → china / world
  */
 
 export const REPORT_LOCALE: "zh" | "en" =

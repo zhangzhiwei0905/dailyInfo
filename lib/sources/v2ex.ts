@@ -97,12 +97,14 @@ export async function fetchV2ex(
   // Sort by reply count desc — closest available proxy for "hot"
   candidates.sort((a, b) => b.topic.replies - a.topic.replies);
 
-  return candidates.slice(0, limit).map(({ topic, nodeTitle }) => ({
+  return candidates.slice(0, limit).map(({ topic, nodeTitle }, index) => ({
     sourceId,
     title: topic.title,
     url: topic.url,
     excerpt: `${topic.replies} 回复 · ${nodeTitle} 节点`,
     publishedAt: topic.created ? new Date(topic.created * 1000) : undefined,
+    sourceRank: index + 1,
+    engagementScore: topic.replies,
     category: "tech" as const,
   }));
 }

@@ -76,19 +76,43 @@ model Report {
 }
 
 model ReportArticle {
-  id          String   @id @default(cuid())
-  reportId    String
-  report      Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  sourceId    String
-  sourceName  String
-  category    Category
-  title       String
-  url         String
-  excerpt     String?
-  summary     String?
-  meta        String?
-  publishedAt DateTime?
-  rawJson     Json?
+  id                   String   @id @default(cuid())
+  reportId             String
+  report               Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  sourceId             String
+  sourceName           String
+  category             Category
+  title                String
+  url                  String
+  excerpt              String?
+  summary              String?
+  meta                 String?
+  publishedAt          DateTime?
+  sourceRank           Int?
+  engagementScore      Float?
+  heatScore            Float?
+  recommendationScore  Float?
+  recommendationReason String?
+  rawJson              Json?
+}
+
+model SavedArticle {
+  id              String    @id @default(cuid())
+  url             String    @unique
+  title           String
+  sourceId        String?
+  sourceName      String?
+  category        Category?
+  excerpt         String?
+  summary         String?
+  meta            String?
+  publishedAt     DateTime?
+  firstReportDate String?
+  lastReportDate  String?
+  savedAt         DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@index([savedAt])
 }
 
 model GenerationRun {

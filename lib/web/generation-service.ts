@@ -8,6 +8,7 @@ import {
   enrichTrendingPapersSummaries,
   enrichXViralSummaries,
 } from "../ai/enrich";
+import { applyRecommendationScores } from "../articles/recommendation";
 import { getModelTag, validateBackendCredentials } from "../ai/llm";
 import {
   generateDailyReport,
@@ -67,7 +68,7 @@ async function fetchAll(
       log(`  ${source.id.padEnd(20)} FAILED - ${message}`);
     }
   }
-  return articles;
+  return applyRecommendationScores(articles) as ArticleInput[];
 }
 
 async function enrichGithub(

@@ -17,7 +17,7 @@ const requiredFiles = [
   "app/globals.css",
   "app/archive/page.tsx",
   "app/report/route.ts",
-  "app/report/[date]/route.ts",
+  "app/report/[date]/page.tsx",
   "app/reports/[date]/route.ts",
   "app/admin/(protected)/page.tsx",
   "app/admin/login/page.tsx",
@@ -31,7 +31,14 @@ const requiredFiles = [
   "app/admin/(protected)/runs/page.tsx",
   "app/admin/(protected)/runs/today/route.ts",
   "components/public/MainNavigation.tsx",
+  "components/public/ReportFrame.tsx",
   "components/public/ReportShell.tsx",
+  "components/public/FavoriteToggle.tsx",
+  "app/favorites/page.tsx",
+  "app/api/favorites/route.ts",
+  "lib/db/favorite-repository.ts",
+  "lib/articles/recommendation.ts",
+  "scripts/recommendation-smoke-test.ts",
   "next.config.mjs",
   "postcss.config.mjs",
   "tailwind.config.ts",
@@ -43,6 +50,7 @@ const requiredFiles = [
   "lib/web/generation-service.ts",
   "lib/web/report-persistence.ts",
   "lib/web/run-service.ts",
+  "lib/web/navigation.ts",
   "lib/web/source-validation.ts",
   "scripts/worker.ts",
   "Dockerfile",
@@ -62,17 +70,30 @@ assert.match(loginPage, /canonicalizeLocalhost/);
 assert.equal(loginPage.includes("loginAction"), false);
 
 const mainNavigation = fs.readFileSync("components/public/MainNavigation.tsx", "utf8");
+const publicNavigation = fs.readFileSync("lib/web/navigation.ts", "utf8");
 assert.match(mainNavigation, /"use client"/);
 assert.match(mainNavigation, /usePathname/);
-assert.match(mainNavigation, /href: "\/report"/);
-assert.match(mainNavigation, /href: "\/archive"/);
-assert.match(mainNavigation, /href: "\/admin"/);
-assert.match(mainNavigation, /fixed/);
-assert.match(mainNavigation, /top-4/);
-assert.match(mainNavigation, /z-50/);
+assert.match(mainNavigation, /publicNavItems/);
+assert.match(mainNavigation, /publicNavClasses/);
+assert.match(publicNavigation, /href: "\/report"/);
+assert.match(publicNavigation, /href: "\/archive"/);
+assert.match(publicNavigation, /href: "\/favorites"/);
+assert.match(publicNavigation, /href: "\/admin"/);
+assert.match(publicNavigation, /label: "我的收藏"/);
+assert.match(publicNavigation, /publicNavClasses/);
+assert.match(publicNavigation, /publicNavMetrics/);
+assert.match(publicNavigation, /fixed/);
+assert.match(publicNavigation, /top-4/);
+assert.match(publicNavigation, /z-50/);
+assert.equal(mainNavigation.includes("tracking-tight"), false);
 assert.equal(mainNavigation.includes('href: "/"'), false);
 assert.match(mainNavigation, /pathname === "\/" \|\| pathname === "\/report" \|\| pathname\.startsWith\("\/report\/"\)/);
 assert.match(mainNavigation, /pathname\.startsWith\("\/admin"\)/);
+assert.match(mainNavigation, /pathname === "\/favorites"/);
+assert.doesNotMatch(
+  mainNavigation,
+  /href === "\/archive"[\s\S]*pathname\.startsWith\("\/report\/"\)/,
+);
 assert.match(mainNavigation, /action="\/admin\/logout"/);
 assert.match(mainNavigation, /method="post"/);
 assert.match(mainNavigation, /!pathname\.startsWith\("\/admin\/login"\)/);
@@ -95,9 +116,18 @@ const latestReportRoute = fs.readFileSync("app/report/route.ts", "utf8");
 assert.match(latestReportRoute, /listReadyReports/);
 assert.match(latestReportRoute, /\/report\/\$\{latest\.dateKey\}/);
 
-const datedReportRoute = fs.readFileSync("app/report/[date]/route.ts", "utf8");
-assert.match(datedReportRoute, /findReportHtml/);
-assert.match(datedReportRoute, /content-type/);
+assert.equal(fs.existsSync("app/report/[date]/route.ts"), false);
+const datedReportPage = fs.readFileSync("app/report/[date]/page.tsx", "utf8");
+assert.match(datedReportPage, /findReportHtml/);
+assert.match(datedReportPage, /ReportFrame/);
+assert.match(datedReportPage, /prepareReportFrameHtml/);
+assert.equal(datedReportPage.includes("NextResponse"), false);
+
+const reportFrame = fs.readFileSync("components/public/ReportFrame.tsx", "utf8");
+assert.match(reportFrame, /"use client"/);
+assert.match(reportFrame, /srcDoc/);
+assert.match(reportFrame, /contentDocument/);
+assert.equal(reportFrame.includes("MainNavigation"), false);
 
 const sourcesPage = fs.readFileSync("app/admin/(protected)/sources/page.tsx", "utf8");
 assert.equal(sourcesPage.includes('target="_blank"'), false);
@@ -145,20 +175,38 @@ assert.match(enrichSource, /GENERAL_ARTICLE_SYSTEM_PROMPT_ZH/);
 assert.match(enrichSource, /GENERAL_ARTICLE_SYSTEM_PROMPT_EN/);
 
 const sourceConfig = JSON.parse(fs.readFileSync("sources.config.json", "utf8")) as SourceConfig[];
+const prismaSchema = fs.readFileSync("prisma/schema.prisma", "utf8");
+assert.match(prismaSchema, /model SavedArticle/);
+assert.match(prismaSchema, /url\s+String\s+@unique/);
+assert.match(prismaSchema, /recommendationScore\s+Float\?/);
+assert.match(prismaSchema, /recommendationReason\s+String\?/);
+assert.match(prismaSchema, /engagementScore\s+Float\?/);
+assert.match(prismaSchema, /heatScore\s+Float\?/);
+assert.match(prismaSchema, /sourceRank\s+Int\?/);
 const packageJson = JSON.parse(fs.readFileSync("package.json", "utf8")) as {
   scripts?: Record<string, string>;
 };
 assert.equal(
   packageJson.scripts?.["db:seed"],
   "tsx scripts/import-sources.ts",
-  "db:seed should initialize the 9 source registry from sources.config.json",
+  "db:seed should initialize the source registry from sources.config.json",
 );
 assert.equal(
   packageJson.scripts?.["sources:import"],
   packageJson.scripts?.["db:seed"],
   "sources:import and db:seed should share the same source initialization path",
 );
-assert.equal(sourceConfig.length, 9, "sources.config.json should only keep the 9 active sources");
+assert.equal(sourceConfig.length, 10, "sources.config.json should keep the 10 active sources including GitHub Trending");
+const githubTrendingSource = sourceConfig.find((source) => source.id === "github-trending");
+assert.deepEqual(
+  githubTrendingSource && {
+    type: (githubTrendingSource as SourceConfig & { type?: string }).type,
+    category: githubTrendingSource.category,
+    subcategory: githubTrendingSource.subcategory,
+  },
+  { type: "scrape", category: "tech", subcategory: "github-trending" },
+  "GitHub Trending should be wired as a real tech source",
+);
 assert.equal(
   sourceConfig.some((source) => source.id === "juejin"),
   false,
@@ -183,10 +231,30 @@ assert.equal(
   0,
   "sources.config.json should not keep disabled sources",
 );
+assert.deepEqual(
+  sourceConfig
+    .filter((source) => source.category === "finance")
+    .map((source) => source.subcategory)
+    .sort(),
+  ["china-finance", "global-business", "macro-economy"],
+  "finance sources should be split into meaningful subcategories",
+);
+assert.deepEqual(
+  sourceConfig
+    .filter((source) => source.category === "politics")
+    .map((source) => source.subcategory)
+    .sort(),
+  ["china", "world", "world"],
+  "politics sources should separate domestic and world coverage",
+);
 for (const category of ["tech", "finance", "politics"] as const) {
   const enabled = sourceConfig.filter((source) => source.category === category && source.enabled !== false);
   const zhEnabled = enabled.filter((source) => source.lang === "zh" || source.locales?.includes("zh"));
-  assert.equal(enabled.length, 3, `${category} should have exactly 3 enabled sources`);
+  assert.equal(
+    enabled.length,
+    category === "tech" ? 4 : 3,
+    `${category} should have the expected enabled source count`,
+  );
   assert.ok(zhEnabled.length >= 2, `${category} should have at least 2 Chinese-capable enabled sources`);
   for (const source of enabled) {
     assert.ok(source.subcategory, `${source.id} should have a subcategory for rendering`);
@@ -223,6 +291,8 @@ assert.match(adminHome, /href="\/admin\/sources"/);
 assert.match(adminHome, /href="\/admin\/runs"/);
 assert.match(adminHome, /源管理/);
 assert.match(adminHome, /生成记录/);
+assert.equal(adminHome.includes("维护 9 个默认源"), false);
+assert.match(adminHome, /title: `维护 \$\{sourceCount\} 个默认源`/);
 
 const logoutRoute = fs.readFileSync("app/admin/logout/route.ts", "utf8");
 assert.equal(logoutRoute.includes("export async function GET"), false);
@@ -258,5 +328,18 @@ assert.match(authHostSource, /localhost/);
 assert.match(authHostSource, /127\.0\.0\.1/);
 assert.match(authHostSource, /0\.0\.0\.0/);
 assert.match(authHostSource, /\[::1\]/);
+
+const favoritesPage = fs.readFileSync("app/favorites/page.tsx", "utf8");
+assert.match(favoritesPage, /listSavedArticles/);
+assert.match(favoritesPage, /我的收藏/);
+assert.match(favoritesPage, /sort/);
+assert.equal(favoritesPage.includes("<table"), false);
+
+const favoritesApiRoute = fs.readFileSync("app/api/favorites/route.ts", "utf8");
+assert.match(favoritesApiRoute, /export async function GET/);
+assert.match(favoritesApiRoute, /export async function POST/);
+assert.match(favoritesApiRoute, /listSavedUrls/);
+assert.match(favoritesApiRoute, /setSavedArticle/);
+assert.match(favoritesApiRoute, /status: 400/);
 
 console.log("[web-smoke-test] ok");

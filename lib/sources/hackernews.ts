@@ -33,7 +33,7 @@ export async function fetchHackerNews(
   );
   return items
     .filter((it): it is HnItem => Boolean(it && it.title))
-    .map((it) => ({
+    .map((it, index) => ({
       sourceId,
       title: it.title ?? "",
       url: it.url ?? `https://news.ycombinator.com/item?id=${it.id}`,
@@ -41,6 +41,8 @@ export async function fetchHackerNews(
         ? stripHtml(it.text).slice(0, 300)
         : `${it.score ?? 0} points · ${it.descendants ?? 0} comments`,
       publishedAt: it.time ? new Date(it.time * 1000) : undefined,
+      sourceRank: index + 1,
+      engagementScore: (it.score ?? 0) + (it.descendants ?? 0) * 2,
       category: "tech" as const,
     }));
 }

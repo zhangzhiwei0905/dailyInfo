@@ -1,5 +1,20 @@
 [
   {
+    "id": "github-trending",
+    "name": "GitHub Trending",
+    "type": "scrape",
+    "url": "https://github.com/trending?since=daily",
+    "category": "tech",
+    "subcategory": "github-trending",
+    "lang": "en",
+    "enabled": true,
+    "locales": [
+      "zh",
+      "en"
+    ],
+    "notes": "每日 GitHub 趋势榜；由 lib/sources/github-trending.ts 抓取榜单顺序和 star 信息。"
+  },
+  {
     "id": "hellogithub",
     "name": "HelloGitHub 月刊",
     "type": "rss",
@@ -45,7 +60,7 @@
     "type": "rss",
     "url": "https://www.chinanews.com.cn/rss/finance.xml",
     "category": "finance",
-    "subcategory": "news",
+    "subcategory": "china-finance",
     "lang": "zh",
     "enabled": true,
     "locales": [
@@ -59,7 +74,7 @@
     "type": "rss",
     "url": "https://feeds.npr.org/1006/rss.xml",
     "category": "finance",
-    "subcategory": "news",
+    "subcategory": "global-business",
     "lang": "en",
     "enabled": true,
     "locales": [
@@ -74,7 +89,7 @@
     "type": "rss",
     "url": "https://www.cnbc.com/id/20910258/device/rss/rss.html",
     "category": "finance",
-    "subcategory": "news",
+    "subcategory": "macro-economy",
     "lang": "en",
     "enabled": true,
     "locales": [
@@ -89,7 +104,7 @@
     "type": "rss",
     "url": "https://www.chinanews.com.cn/rss/china.xml",
     "category": "politics",
-    "subcategory": "world",
+    "subcategory": "china",
     "lang": "zh",
     "enabled": true,
     "locales": [

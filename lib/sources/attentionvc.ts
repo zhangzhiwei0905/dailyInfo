@@ -118,5 +118,11 @@ export async function fetchAttentionVc(
     publishedAt: e.tweetCreatedAt ? new Date(e.tweetCreatedAt) : undefined,
     category: "tech" as const,
     meta: buildMeta(e),
+    sourceRank: e.rank,
+    engagementScore:
+      (e.viewCount ?? 0) +
+      (e.likeCount ?? 0) * 8 +
+      (e.retweetCount ?? 0) * 12 +
+      (e.replyCount ?? 0) * 10,
   }));
 }

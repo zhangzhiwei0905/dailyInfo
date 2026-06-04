@@ -42,7 +42,7 @@ export async function fetchHuggingfacePapers(
     // is in PRESERVE_FETCH_ORDER_SOURCES) instead of re-sorting by date.
     .sort((a, b) => (b.paper.upvotes ?? 0) - (a.paper.upvotes ?? 0))
     .slice(0, limit)
-    .map((p) => ({
+    .map((p, index) => ({
       sourceId,
       title: p.paper.title,
       url: `https://huggingface.co/papers/${p.paper.id}`,
@@ -51,6 +51,8 @@ export async function fetchHuggingfacePapers(
         ? new Date(p.paper.publishedAt)
         : undefined,
       meta: `👍 ${p.paper.upvotes}`,
+      sourceRank: index + 1,
+      engagementScore: p.paper.upvotes ?? undefined,
       category: "tech" as const,
     }));
 }

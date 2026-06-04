@@ -100,7 +100,7 @@ export async function fetchRss(
 
   const articles = (feed.items ?? [])
     .slice(0, limit)
-    .map((item) => ({
+    .map((item, index) => ({
       sourceId,
       title: (item.title ?? "").trim(),
       url: (item.link ?? "").trim(),
@@ -109,6 +109,7 @@ export async function fetchRss(
         300,
       ),
       publishedAt: item.isoDate ? new Date(item.isoDate) : undefined,
+      sourceRank: index + 1,
       category,
     }))
     .filter((a) => a.title && a.url);

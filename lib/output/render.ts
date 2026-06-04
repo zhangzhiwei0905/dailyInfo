@@ -5,6 +5,7 @@ import type {
   TradingSection,
 } from "../ai/pipeline";
 import type { WatchlistPick } from "../ai/trading-commentary";
+import { sortArticlesForReading } from "../articles/recommendation";
 import { REPORT_LOCALE } from "../sources/registry";
 import { getReportTz } from "../utils";
 import type { Category, SourceDef } from "../sources/types";
@@ -191,14 +192,16 @@ const SUBCATEGORY_ORDER: Partial<Record<Category, string[]>> = {
   // zh mode keeps cn-community (V2EX / LinuxDo); en mode keeps
   // overseas-community (Hacker News / r/stocks).
   tech: ["github-trending", "trending-papers", "x-viral", "ai-news", "cn-community", "overseas-community"],
-  finance: ["news"],
-  politics: ["world"],
+  finance: ["china-finance", "global-business", "macro-economy"],
+  politics: ["china", "world"],
 };
 
-const TECH_MAIN_SUBS = new Set(["github-trending", "trending-papers", "x-viral", "ai-news"]);
+const TECH_MAIN_SUBS = new Set(["tech-overview", "github-trending", "trending-papers", "x-viral", "ai-news"]);
 const TECH_COMMUNITY_SUBS = new Set(["cn-community", "overseas-community"]);
+const TECH_OVERVIEW_LIMIT = 20;
 
 const SUBCATEGORY_LABELS: Record<string, string> = {
+  "tech-overview": "综合",
   "github-trending": "GitHub Trending",
   "trending-papers": STR.subTrendingPapers,
   "cn-community": STR.subCnCommunity,
@@ -206,6 +209,10 @@ const SUBCATEGORY_LABELS: Record<string, string> = {
   "ai-news": STR.subAiNews,
   "x-viral": STR.subXViral,
   "blog-weekly": STR.subBlogWeekly,
+  "china-finance": "国内财经",
+  "global-business": "全球商业",
+  "macro-economy": "宏观经济",
+  china: "国内",
   news: STR.subFinanceNews,
   world: STR.subWorld,
 };
@@ -259,7 +266,10 @@ function displayLimitFor(
  */
 export const MERGED_SUBGROUP_LIMITS: Record<string, number> = {
   "tech:ai-news": 15,
-  "finance:news": 12,
+  "finance:china-finance": 12,
+  "finance:global-business": 12,
+  "finance:macro-economy": 12,
+  "politics:china": 12,
   "politics:world": 15,
 };
 
@@ -338,10 +348,7 @@ export function groupRaw(
   for (const cat of Object.keys(buckets) as Category[]) {
     for (const [id, b] of buckets[cat].entries()) {
       if (PRESERVE_FETCH_ORDER_SOURCES.has(id)) continue;
-      b.items.sort(
-        (a, b) =>
-          (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0),
-      );
+      b.items = sortArticlesForReading(b.items);
     }
   }
 
@@ -382,6 +389,24 @@ export function groupRaw(
     }
     // Subcategory split: bucket each source under its registered subcategory.
     const subs: SubGroup[] = [];
+    if (cat === "tech") {
+      const flatTech: ArticleInput[] = [];
+      for (const b of buckets[cat].values()) flatTech.push(...b.items);
+      if (flatTech.length > 0) {
+        subs.push({
+          id: "tech-overview",
+          name: SUBCATEGORY_LABELS["tech-overview"],
+          sources: [
+            {
+              sourceId: "_tech-overview",
+              sourceName: SUBCATEGORY_LABELS["tech-overview"],
+              items: sortArticlesForReading(flatTech).slice(0, TECH_OVERVIEW_LIMIT),
+              merged: true,
+            },
+          ],
+        });
+      }
+    }
     for (const subId of order) {
       const mergeLimit = mergedLimitFor(cat, subId);
       if (mergeLimit !== undefined) {
@@ -393,10 +418,7 @@ export function groupRaw(
           if (subcatOf.get(id) === subId) flat.push(...b.items);
         }
         if (flat.length === 0) continue;
-        flat.sort(
-          (a, b) =>
-            (b.publishedAt?.getTime() ?? 0) - (a.publishedAt?.getTime() ?? 0),
-        );
+        const sortedFlat = sortArticlesForReading(flat);
         subs.push({
           id: subId,
           name: SUBCATEGORY_LABELS[subId] ?? subId,
@@ -404,7 +426,7 @@ export function groupRaw(
             {
               sourceId: "_merged",
               sourceName: SUBCATEGORY_LABELS[subId] ?? subId,
-              items: flat.slice(0, mergeLimit),
+              items: sortedFlat.slice(0, mergeLimit),
               merged: true,
             },
           ],
@@ -439,6 +461,14 @@ function escapeHtml(s: string): string {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#39;");
+}
+
+function jsonAttr(value: unknown): string {
+  return escapeHtml(JSON.stringify(value));
+}
+
+function scriptString(value: string): string {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
 }
 
 function formatDate(d: Date | undefined): string {
@@ -647,9 +677,23 @@ function renderArticleHtml(a: ArticleInput, showSource = false): string {
   const sourceLabel = showSource && a.source ? escapeHtml(a.source) : "";
   const metaLine = [sourceLabel, time].filter(Boolean).join(" · ");
   const facts = [meta, metaLine].filter(Boolean);
+  const favoritePayload = {
+    url: a.url,
+    title: a.title,
+    sourceId: a.sourceId,
+    sourceName: a.source,
+    category: a.category,
+    excerpt: a.excerpt ?? null,
+    summary: summaryText ?? null,
+    meta: a.meta ?? null,
+    publishedAt: a.publishedAt?.toISOString() ?? null,
+  };
   return `<article class="article">
   <div class="article-main">
-    <h3 class="article-title"><a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a></h3>
+    <div class="article-heading">
+      <h3 class="article-title"><a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a></h3>
+      <button class="favorite-star" type="button" aria-label="收藏文章" title="收藏文章" data-favorite-url="${url}" data-favorite-article="${jsonAttr(favoritePayload)}">☆</button>
+    </div>
     ${facts.length > 0 ? `<div class="article-facts">${facts.map((fact) => `<p>${fact}</p>`).join("")}</div>` : ""}
   </div>
   <div class="article-body">
@@ -1293,6 +1337,38 @@ export function renderHtml(
   .article-main {
     min-width: 0;
   }
+  .article-heading {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 2.25rem;
+    align-items: start;
+    gap: 0.65rem;
+  }
+  .favorite-star {
+    width: 2.25rem;
+    height: 2.25rem;
+    border: 1px solid var(--rule);
+    border-radius: 999px;
+    background: var(--bg-elevated);
+    color: var(--muted);
+    font-size: 1.25rem;
+    line-height: 1;
+    cursor: pointer;
+    transition: background 0.18s ease, border-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+  }
+  .favorite-star:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+    transform: translateY(-1px);
+  }
+  .favorite-star.saved {
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--rule));
+    background: color-mix(in srgb, var(--accent) 12%, var(--bg-elevated));
+    color: var(--accent);
+  }
+  .favorite-star.busy {
+    opacity: 0.62;
+    pointer-events: none;
+  }
   .article-facts {
     margin-top: 0.8rem;
     display: grid;
@@ -1514,6 +1590,43 @@ ${reportSiteNavStyles()}
       });
     });
   });
+  (function () {
+    var buttons = Array.prototype.slice.call(document.querySelectorAll('.favorite-star'));
+    if (buttons.length === 0 || !window.fetch) return;
+    var urls = buttons.map(function (btn) { return btn.dataset.favoriteUrl; }).filter(Boolean);
+    function setState(btn, saved) {
+      btn.classList.toggle('saved', saved);
+      btn.textContent = saved ? '★' : '☆';
+      btn.setAttribute('aria-label', saved ? '取消收藏文章' : '收藏文章');
+      btn.setAttribute('title', saved ? '取消收藏文章' : '收藏文章');
+    }
+    fetch('/api/favorites?urls=' + encodeURIComponent(urls.join('\\n')))
+      .then(function (res) { return res.ok ? res.json() : { savedUrls: [] }; })
+      .then(function (data) {
+        var saved = new Set(data.savedUrls || []);
+        buttons.forEach(function (btn) { setState(btn, saved.has(btn.dataset.favoriteUrl)); });
+      })
+      .catch(function () {});
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var nextSaved = !btn.classList.contains('saved');
+        var article = {};
+        try { article = JSON.parse(btn.dataset.favoriteArticle || '{}'); } catch (error) {}
+        article.reportDate = ${scriptString(date)};
+        btn.classList.add('busy');
+        setState(btn, nextSaved);
+        fetch('/api/favorites', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({ url: btn.dataset.favoriteUrl, saved: nextSaved, article: article })
+        })
+          .then(function (res) { if (!res.ok) throw new Error('favorite failed'); return res.json(); })
+          .then(function (data) { setState(btn, Boolean(data.saved)); })
+          .catch(function () { setState(btn, !nextSaved); })
+          .finally(function () { btn.classList.remove('busy'); });
+      });
+    });
+  })();
 </script>
 </body>
 </html>`;

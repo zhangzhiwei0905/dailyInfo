@@ -32,7 +32,7 @@ export default async function AdminHomePage() {
     {
       href: "/admin/sources",
       label: "源管理",
-      title: "维护 9 个默认源",
+      title: `维护 ${sourceCount} 个默认源`,
       description: "修改、测试、删除订阅源，控制每日简报的数据入口。",
       meta: `${enabledSourceCount}/${sourceCount} 已启用`,
     },

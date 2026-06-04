@@ -64,6 +64,7 @@ export async function fetchGithubTrending(
     if (forks) metaParts.push(`🍴 ${forks}`);
     if (starsToday) metaParts.push(`📈 ${starsToday}`);
     const meta = metaParts.join(" · ");
+    const starsTodayValue = Number((starsToday ?? "").replace(/[^\d]/g, "")) || undefined;
 
     items.push({
       sourceId,
@@ -71,6 +72,8 @@ export async function fetchGithubTrending(
       url: `https://github.com/${repo}`,
       excerpt: description.slice(0, 300),
       meta,
+      sourceRank: i + 1,
+      engagementScore: starsTodayValue,
       // intentionally no publishedAt — see file header.
       category: "tech",
     });
