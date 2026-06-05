@@ -74,6 +74,9 @@ const TEXTS_ZH = {
   archiveLink: "← 历史归档",
   reportHeading: "今日简报",
   nextSolarTermLabel: "下一节气",
+  sortRecommended: "推荐",
+  sortTime: "时间",
+  sortSource: "来源",
   topicOverviewLabel: "主题速览",
   topicQuietFinance: "当日无明确财经主线，后续可在财经栏目查看原始来源更新。",
   topicQuietGeneric: "当日未形成高置信主题主线，可在下方栏目继续查看原始条目。",
@@ -129,6 +132,9 @@ const TEXTS_EN: typeof TEXTS_ZH = {
   archiveLink: "← Archive",
   reportHeading: "Today's Brief",
   nextSolarTermLabel: "Next solar term",
+  sortRecommended: "Recommended",
+  sortTime: "Time",
+  sortSource: "Source",
   topicOverviewLabel: "Topic Overview",
   topicQuietFinance: "No clear finance through-line emerged today; check the finance tab for source updates.",
   topicQuietGeneric: "No high-confidence theme emerged today; review the source items below for details.",
@@ -719,6 +725,11 @@ function renderSourceTabs(
 function renderSubContent(category: Category, sub: SubGroup, isActive: boolean): string {
   return `<div class="sub-content${isActive ? " active" : ""}" data-sub-content="${escapeHtml(sub.id)}" data-cat="${category}">
     ${renderSourceTabs(category, sub.id, sub.sources)}
+    <div class="sort-bar" data-sort-bar="${escapeHtml(sub.id)}">
+      <button class="sort-btn active" data-sort-mode="recommended">${STR.sortRecommended}</button>
+      <button class="sort-btn" data-sort-mode="time">${STR.sortTime}</button>
+      <button class="sort-btn" data-sort-mode="source">${STR.sortSource}</button>
+    </div>
     <div class="source-contents">
       ${sub.sources.map((s, i) => renderSourceContent(category, sub.id, s, i === 0)).join("\n")}
     </div>
@@ -1299,6 +1310,33 @@ export function renderHtml(
   .source-content { display: none; }
   .source-content.active { display: block; }
 
+  /* ===== sort switcher ===== */
+  .sort-bar {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: flex-end;
+    padding: 0.5rem 0 0.3rem;
+  }
+  .sort-btn {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 0.3rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--muted);
+    cursor: pointer;
+    font-family: inherit;
+    white-space: nowrap;
+    transition: color 0.18s ease, background 0.18s ease;
+  }
+  .sort-btn:hover { color: var(--fg); background: var(--card); }
+  .sort-btn.active {
+    color: var(--fg);
+    background: var(--card);
+    border-color: var(--rule);
+  }
+
   /* ===== article cards in raw panels ===== */
   .article {
     display: grid;
@@ -1456,6 +1494,7 @@ export function renderHtml(
     }
     .date-chip { padding: 0.32rem 0.5rem; }
     .date-chip-sub { white-space: normal; }
+    .sort-bar { justify-content: flex-start; }
     .hero-card { border-radius: 0.9rem; }
     .hero-card {
       grid-template-columns: 1fr;
@@ -1574,6 +1613,54 @@ ${reportSiteNavStyles()}
       });
     });
   });
+  // Sort switcher — reorders article elements within each sub-content
+  document.querySelectorAll('.sort-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var bar = btn.closest('.sort-bar');
+      if (!bar) return;
+      var subContent = bar.closest('.sub-content');
+      if (!subContent) return;
+      var mode = btn.dataset.sortMode;
+      bar.querySelectorAll('.sort-btn').forEach(function (b) {
+        b.classList.toggle('active', b === btn);
+      });
+      subContent.querySelectorAll('.source-content').forEach(function (container) {
+        var articles = Array.prototype.slice.call(container.querySelectorAll('article.article'));
+        if (articles.length < 2) return;
+        articles.sort(function (a, b) {
+          if (mode === 'time') {
+            return parseFloat(b.dataset.sortTime) - parseFloat(a.dataset.sortTime);
+          }
+          if (mode === 'source') {
+            var srcDiff = a.dataset.sortSource < b.dataset.sortSource ? -1 :
+                          a.dataset.sortSource > b.dataset.sortSource ? 1 : 0;
+            if (srcDiff !== 0) return srcDiff;
+            return parseFloat(b.dataset.sortScore) - parseFloat(a.dataset.sortScore);
+          }
+          // recommended (default)
+          return parseFloat(b.dataset.sortScore) - parseFloat(a.dataset.sortScore);
+        });
+        articles.forEach(function (el) { container.appendChild(el); });
+      });
+      // Persist sort choice in URL query param
+      try {
+        var url = new URL(window.location.href);
+        url.searchParams.set('sort', mode);
+        history.replaceState(null, '', url.toString());
+      } catch (e) {}
+    });
+  });
+  // Restore sort from URL query param on load
+  (function () {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var mode = params.get('sort');
+      if (!mode || mode === 'recommended') return;
+      document.querySelectorAll('.sort-btn[data-sort-mode="' + mode + '"]').forEach(function (btn) {
+        btn.click();
+      });
+    } catch (e) {}
+  })();
   (function () {
     var buttons = Array.prototype.slice.call(document.querySelectorAll('.favorite-star'));
     if (buttons.length === 0 || !window.fetch) return;
