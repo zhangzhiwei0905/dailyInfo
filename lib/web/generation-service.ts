@@ -7,6 +7,7 @@ import {
   enrichGithubTrendingSummaries,
   enrichTrendingPapersSummaries,
   enrichXViralSummaries,
+  enrichImportanceScores,
 } from "../ai/enrich";
 import { applyRecommendationScores } from "../articles/recommendation";
 import { getModelTag, validateBackendCredentials } from "../ai/llm";
@@ -250,6 +251,18 @@ export async function generateDailyBrief(
   await enrichMergedSubgroup(articles, options.sources, "tech", "ai-news", log);
   await enrichXViral(articles, log);
   await enrichMissingArticleSummaries(articles, log);
+
+  // Importance scoring — batch all articles in groups of 15
+  const importanceBatchSize = 15;
+  log(`[daily] scoring importance for ${articles.length} articles`);
+  for (let i = 0; i < articles.length; i += importanceBatchSize) {
+    const batch = articles.slice(i, i + importanceBatchSize);
+    const scores = await enrichImportanceScores(batch);
+    for (const article of batch) {
+      const score = scores.get(article.url);
+      if (score !== undefined) article.importanceScore = score;
+    }
+  }
 
   let trading: TradingSection | null = null;
   if (options.includeTrading !== false) {
