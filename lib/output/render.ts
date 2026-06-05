@@ -73,10 +73,6 @@ const TEXTS_ZH = {
   mdImportance: "重要度",
   archiveLink: "← 历史归档",
   reportHeading: "今日简报",
-  weekdayLabel: "星期",
-  lunarLabel: "农历",
-  solarTermLabel: "节气",
-  noSolarTerm: "今日无节气",
   nextSolarTermLabel: "下一节气",
   topicOverviewLabel: "主题速览",
   topicQuietFinance: "当日无明确财经主线，后续可在财经栏目查看原始来源更新。",
@@ -132,10 +128,6 @@ const TEXTS_EN: typeof TEXTS_ZH = {
   mdImportance: "Importance",
   archiveLink: "← Archive",
   reportHeading: "Today's Brief",
-  weekdayLabel: "Weekday",
-  lunarLabel: "Lunar",
-  solarTermLabel: "Solar term",
-  noSolarTerm: "No solar term today",
   nextSolarTermLabel: "Next solar term",
   topicOverviewLabel: "Topic Overview",
   topicQuietFinance: "No clear finance through-line emerged today; check the finance tab for source updates.",
@@ -196,12 +188,10 @@ const SUBCATEGORY_ORDER: Partial<Record<Category, string[]>> = {
   politics: ["china", "world"],
 };
 
-const TECH_MAIN_SUBS = new Set(["tech-overview", "github-trending", "trending-papers", "x-viral", "ai-news"]);
+const TECH_MAIN_SUBS = new Set(["github-trending", "trending-papers", "x-viral", "ai-news"]);
 const TECH_COMMUNITY_SUBS = new Set(["cn-community", "overseas-community"]);
-const TECH_OVERVIEW_LIMIT = 20;
 
 const SUBCATEGORY_LABELS: Record<string, string> = {
-  "tech-overview": "综合",
   "github-trending": "GitHub Trending",
   "trending-papers": STR.subTrendingPapers,
   "cn-community": STR.subCnCommunity,
@@ -389,24 +379,6 @@ export function groupRaw(
     }
     // Subcategory split: bucket each source under its registered subcategory.
     const subs: SubGroup[] = [];
-    if (cat === "tech") {
-      const flatTech: ArticleInput[] = [];
-      for (const b of buckets[cat].values()) flatTech.push(...b.items);
-      if (flatTech.length > 0) {
-        subs.push({
-          id: "tech-overview",
-          name: SUBCATEGORY_LABELS["tech-overview"],
-          sources: [
-            {
-              sourceId: "_tech-overview",
-              sourceName: SUBCATEGORY_LABELS["tech-overview"],
-              items: sortArticlesForReading(flatTech).slice(0, TECH_OVERVIEW_LIMIT),
-              merged: true,
-            },
-          ],
-        });
-      }
-    }
     for (const subId of order) {
       const mergeLimit = mergedLimitFor(cat, subId);
       if (mergeLimit !== undefined) {
@@ -552,10 +524,16 @@ function formatFullDate(d: Date): string {
 
 function formatWeekday(d: Date): string {
   const localeTag = REPORT_LOCALE === "en" ? "en-US" : "zh-CN";
-  return d.toLocaleDateString(localeTag, {
+  if (REPORT_LOCALE === "zh") {
+    return d.toLocaleDateString("zh-CN", {
+      timeZone: getReportTz(),
+      weekday: "short",
+    }); // e.g. "周五"
+  }
+  return d.toLocaleDateString("en-US", {
     timeZone: getReportTz(),
     weekday: "long",
-  });
+  }); // e.g. "Friday"
 }
 
 function formatShortMonthDay(d: Date): string {
@@ -569,14 +547,20 @@ function formatShortMonthDay(d: Date): string {
 
 function formatLunarDate(d: Date): string {
   try {
-    return new Intl.DateTimeFormat(
-      REPORT_LOCALE === "en" ? "en-u-ca-chinese" : "zh-CN-u-ca-chinese",
-      {
+    if (REPORT_LOCALE === "zh") {
+      // zh-CN-u-ca-chinese produces e.g. "四月二十" which is ideal
+      const parts = new Intl.DateTimeFormat("zh-CN-u-ca-chinese", {
         timeZone: getReportTz(),
         month: "long",
         day: "numeric",
-      },
-    ).format(d);
+      }).formatToParts(d);
+      return parts.map((p) => p.value).join("");
+    }
+    return new Intl.DateTimeFormat("en-u-ca-chinese", {
+      timeZone: getReportTz(),
+      month: "long",
+      day: "numeric",
+    }).format(d);
   } catch {
     return "";
   }
@@ -688,7 +672,7 @@ function renderArticleHtml(a: ArticleInput, showSource = false): string {
     meta: a.meta ?? null,
     publishedAt: a.publishedAt?.toISOString() ?? null,
   };
-  return `<article class="article">
+  return `<article class="article" data-sort-score="${a.recommendationScore ?? 0}" data-sort-time="${a.publishedAt?.getTime() ?? 0}" data-sort-source="${escapeHtml(a.sourceId)}">
   <div class="article-main">
     <div class="article-heading">
       <h3 class="article-title"><a href="${url}" target="_blank" rel="noopener noreferrer">${title}</a></h3>
@@ -1500,19 +1484,19 @@ ${reportSiteNavStyles()}
       </div>
       <div class="date-details" aria-label="${escapeHtml(dateDisplay.fullDate)}">
         <div class="date-chip">
-          <span class="date-chip-label">${STR.weekdayLabel}</span>
           <span class="date-chip-value">${escapeHtml(dateDisplay.weekday)}</span>
           <span class="date-chip-sub">${escapeHtml(dateDisplay.fullDate)}</span>
         </div>
         ${dateDisplay.lunar ? `<div class="date-chip">
-          <span class="date-chip-label">${STR.lunarLabel}</span>
+          <span class="date-chip-label">农历</span>
           <span class="date-chip-value">${escapeHtml(dateDisplay.lunar)}</span>
         </div>` : ""}
-        <div class="date-chip">
-          <span class="date-chip-label">${STR.solarTermLabel}</span>
-          <span class="date-chip-value">${dateDisplay.solarTermToday ? escapeHtml(dateDisplay.solarTermToday) : STR.noSolarTerm}</span>
-          ${dateDisplay.nextSolarTerm ? `<span class="date-chip-sub">${STR.nextSolarTermLabel} · ${escapeHtml(dateDisplay.nextSolarTermDate)} ${escapeHtml(dateDisplay.nextSolarTerm)}</span>` : ""}
-        </div>
+        ${dateDisplay.solarTermToday ? `<div class="date-chip">
+          <span class="date-chip-value">${escapeHtml(dateDisplay.solarTermToday)}</span>
+        </div>` : ""}
+        ${dateDisplay.nextSolarTerm ? `<div class="date-chip">
+          <span class="date-chip-sub">${STR.nextSolarTermLabel} · ${escapeHtml(dateDisplay.nextSolarTermDate)} ${escapeHtml(dateDisplay.nextSolarTerm)}</span>
+        </div>` : ""}
       </div>
     </div>
     <section class="hero-card" aria-label="${STR.topicOverviewLabel}">
