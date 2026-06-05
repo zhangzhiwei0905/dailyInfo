@@ -34,10 +34,18 @@ function scoreArticle(article: RawArticle, now: Date): RawArticle {
   const heatScore = normalizeEngagement(article.engagementScore);
   const recency = recencyScore(article.publishedAt, now);
   const rank = rankScore(article.sourceRank);
-  const score =
-    heatScore === undefined
-      ? recency * 0.58 + rank * 0.42
-      : heatScore * 0.45 + recency * 0.25 + rank * 0.2 + 10;
+  const importance = article.importanceScore;
+  let score: number;
+
+  if (importance !== undefined && importance > 0) {
+    // Normalize 1-10 importance to 0-100 scale
+    const importanceNorm = importance * 10;
+    score = importanceNorm * 0.50 + recency * 0.28 + rank * 0.22;
+  } else if (heatScore === undefined) {
+    score = recency * 0.58 + rank * 0.42;
+  } else {
+    score = heatScore * 0.45 + recency * 0.25 + rank * 0.2 + 10;
+  }
 
   return {
     ...article,
