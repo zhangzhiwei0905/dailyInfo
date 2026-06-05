@@ -727,7 +727,9 @@ function renderSubContent(category: Category, sub: SubGroup, isActive: boolean):
     ${renderSourceTabs(category, sub.id, sub.sources)}
     <div class="sort-bar" data-sort-bar="${escapeHtml(sub.id)}">
       <button class="sort-btn active" data-sort-mode="recommended">${STR.sortRecommended}</button>
+      <span class="sort-sep"></span>
       <button class="sort-btn" data-sort-mode="time">${STR.sortTime}</button>
+      <span class="sort-sep"></span>
       <button class="sort-btn" data-sort-mode="source">${STR.sortSource}</button>
     </div>
     <div class="source-contents">
@@ -1313,28 +1315,67 @@ export function renderHtml(
   /* ===== sort switcher ===== */
   .sort-bar {
     display: flex;
-    gap: 0.25rem;
+    align-items: center;
+    gap: 0;
     justify-content: flex-end;
-    padding: 0.5rem 0 0.3rem;
+    padding: 0.55rem 0 0.4rem;
+  }
+  .sort-bar::before {
+    content: "";
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    margin-right: 0.35rem;
+    opacity: 0.35;
+    background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h10M3 8h7M3 12h4'/%3E%3C/svg%3E") center/contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 4h10M3 8h7M3 12h4'/%3E%3C/svg%3E") center/contain no-repeat;
   }
   .sort-btn {
     background: transparent;
-    border: 1px solid transparent;
-    padding: 0.3rem 0.65rem;
-    border-radius: 999px;
-    font-size: 0.76rem;
-    font-weight: 600;
+    border: none;
+    padding: 0.28rem 0.55rem;
+    border-radius: 4px;
+    font-size: 0.72rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
     color: var(--muted);
     cursor: pointer;
     font-family: inherit;
     white-space: nowrap;
-    transition: color 0.18s ease, background 0.18s ease;
+    transition: color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+    position: relative;
   }
-  .sort-btn:hover { color: var(--fg); background: var(--card); }
-  .sort-btn.active {
+  .sort-btn + .sort-btn { margin-left: 0.1rem; }
+  .sort-btn:hover {
     color: var(--fg);
     background: var(--card);
-    border-color: var(--rule);
+  }
+  .sort-btn:active {
+    transform: scale(0.96);
+  }
+  .sort-btn.active {
+    color: var(--fg-soft);
+    font-weight: 650;
+  }
+  .sort-btn.active::after {
+    content: "";
+    position: absolute;
+    left: 0.45rem;
+    right: 0.45rem;
+    bottom: 0.1rem;
+    height: 1.5px;
+    border-radius: 1px;
+    background: var(--fg);
+    opacity: 0.7;
+  }
+  .sort-sep {
+    display: inline-block;
+    width: 1px;
+    height: 10px;
+    margin: 0 0.2rem;
+    background: var(--rule);
+    flex-shrink: 0;
   }
 
   /* ===== article cards in raw panels ===== */
