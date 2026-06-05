@@ -115,6 +115,14 @@ assert.equal(homePage.includes("ReportShell"), false);
 const latestReportRoute = fs.readFileSync("app/report/route.ts", "utf8");
 assert.match(latestReportRoute, /listReadyReports/);
 assert.match(latestReportRoute, /\/report\/\$\{latest\.dateKey\}/);
+assert.match(latestReportRoute, /headers: \{ Location: path \}/);
+assert.match(latestReportRoute, /redirectTo\(`\/report\/\$\{latest\.dateKey\}`\)/);
+assert.equal(latestReportRoute.includes("new URL(`/report/${latest.dateKey}`, request.url)"), false);
+assert.equal(latestReportRoute.includes("new URL(\"/\", request.url)"), false);
+
+const legacyReportsRoute = fs.readFileSync("app/reports/[date]/route.ts", "utf8");
+assert.match(legacyReportsRoute, /headers: \{ Location: `\/report\/\$\{date\}` \}/);
+assert.equal(legacyReportsRoute.includes("new URL(`/report/${date}`, request.url)"), false);
 
 assert.equal(fs.existsSync("app/report/[date]/route.ts"), false);
 const datedReportPage = fs.readFileSync("app/report/[date]/page.tsx", "utf8");
@@ -274,6 +282,10 @@ assert.match(runTodayRoute, /formData/);
 assert.match(runTodayRoute, /parseGenerationDate/);
 assert.equal(runTodayRoute.includes("await runGeneration"), false);
 
+const runService = fs.readFileSync("lib/web/run-service.ts", "utf8");
+assert.match(runService, /status: "success"[\s\S]*errorMessage: null/);
+assert.match(runService, /status: "success"[\s\S]*logExcerpt: logLines\.slice\(-40\)\.join\("\\n"\)/);
+
 const pipelineSource = fs.readFileSync("lib/ai/pipeline.ts", "utf8");
 assert.match(pipelineSource, /ensureTopicOverviews/);
 assert.match(pipelineSource, /fallbackTopicSummary/);
@@ -293,6 +305,8 @@ assert.match(adminHome, /源管理/);
 assert.match(adminHome, /生成记录/);
 assert.equal(adminHome.includes("维护 9 个默认源"), false);
 assert.match(adminHome, /title: `维护 \$\{sourceCount\} 个默认源`/);
+
+assert.match(runsPage, /run\.status === "failed" && run\.errorMessage/);
 
 const logoutRoute = fs.readFileSync("app/admin/logout/route.ts", "utf8");
 assert.equal(logoutRoute.includes("export async function GET"), false);

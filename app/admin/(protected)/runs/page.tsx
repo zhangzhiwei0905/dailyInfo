@@ -39,11 +39,6 @@ export default async function RunsPage({
       {params.error ? (
         <p className="mt-5 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-700">{params.error}</p>
       ) : null}
-      {params.ran ? (
-        <p className="mt-5 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-800">
-          已开始生成简报。
-        </p>
-      ) : null}
 
       <div className="mt-8 overflow-hidden rounded-2xl border border-black/10 bg-white/70">
         {runs.map((run) => (
@@ -52,13 +47,17 @@ export default async function RunsPage({
               <p className="font-semibold">
                 {run.dateKey} · {run.trigger}
               </p>
-              <p className="text-sm">{run.status}</p>
+              <p className="text-sm" data-status-badge={run.id}>{run.status}</p>
             </div>
             {run.articlesCount !== null ? (
               <p className="text-sm text-neutral-600">{run.articlesCount} 篇文章</p>
             ) : null}
-            {run.errorMessage ? <p className="text-sm text-red-700">{run.errorMessage}</p> : null}
-            {run.logExcerpt ? (
+            {run.status === "failed" && run.errorMessage ? (
+              <p className="text-sm text-red-700">{run.errorMessage}</p>
+            ) : null}
+            {run.status === "running" ? (
+              <LiveLog runId={run.id} />
+            ) : run.logExcerpt ? (
               <pre className="max-h-40 overflow-auto rounded-lg bg-neutral-950 p-3 text-xs text-neutral-100">
                 {run.logExcerpt}
               </pre>
@@ -68,5 +67,65 @@ export default async function RunsPage({
         {runs.length === 0 ? <p className="p-4 text-neutral-600">暂无生成记录。</p> : null}
       </div>
     </section>
+  );
+}
+
+function LiveLog({ runId }: { runId: string }) {
+  return (
+    <div data-live-log={runId}>
+      <div className="flex items-center gap-2 mb-2">
+        <span className="relative flex h-2.5 w-2.5">
+          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+          <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-emerald-500" />
+        </span>
+        <span className="text-xs font-medium text-emerald-700">正在生成…</span>
+      </div>
+      <pre
+        data-log-output={runId}
+        className="max-h-64 overflow-auto rounded-lg bg-neutral-950 p-3 text-xs text-neutral-100 font-mono whitespace-pre-wrap scroll-smooth"
+      />
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `(function(){
+            var runId = ${JSON.stringify(runId)};
+            var output = document.querySelector('[data-log-output="' + runId + '"]');
+            var badge = document.querySelector('[data-status-badge="' + runId + '"]');
+            if (!output) return;
+            var es = new EventSource('/api/admin/runs/' + runId + '/events');
+            var autoScroll = true;
+            output.addEventListener('scroll', function() {
+              autoScroll = output.scrollTop + output.clientHeight >= output.scrollHeight - 20;
+            });
+            es.addEventListener('log', function(e) {
+              output.appendChild(document.createTextNode(e.data + '\\n'));
+              if (autoScroll) output.scrollTop = output.scrollHeight;
+            });
+            es.addEventListener('done', function(e) {
+              es.close();
+              var status = e.data;
+              if (badge) badge.textContent = status;
+              var parent = output.parentElement;
+              if (parent) {
+                var indicator = parent.querySelector('[class*="animate-ping"]');
+                if (indicator) {
+                  var dot = indicator.closest('span.relative');
+                  if (dot) {
+                    var label = dot.nextElementSibling;
+                    if (label) {
+                      label.textContent = status === 'success' ? '生成完成' : '生成失败';
+                      label.className = status === 'success'
+                        ? 'text-xs font-medium text-emerald-700'
+                        : 'text-xs font-medium text-red-700';
+                    }
+                    dot.remove();
+                  }
+                }
+              }
+            });
+            es.onerror = function() { es.close(); };
+          })();`,
+        }}
+      />
+    </div>
   );
 }

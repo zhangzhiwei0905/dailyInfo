@@ -6,6 +6,31 @@ import { persistGenerationResult } from "./report-persistence";
 
 let inProcess = false;
 
+// Active SSE subscribers keyed by run id
+const subscribers = new Map<string, Set<(event: string, data: string) => void>>();
+
+function broadcast(runId: string, event: string, data: string) {
+  const subs = subscribers.get(runId);
+  if (!subs) return;
+  for (const send of subs) send(event, data);
+}
+
+export function subscribeRun(runId: string, send: (event: string, data: string) => void): () => void {
+  if (!subscribers.has(runId)) subscribers.set(runId, new Set());
+  subscribers.get(runId)!.add(send);
+  return () => {
+    const subs = subscribers.get(runId);
+    if (subs) {
+      subs.delete(send);
+      if (subs.size === 0) subscribers.delete(runId);
+    }
+  };
+}
+
+export function isGenerationRunning(): boolean {
+  return inProcess;
+}
+
 export async function runGeneration(input: {
   date: string;
   locale: Locale;
@@ -31,7 +56,10 @@ export async function runGeneration(input: {
       writeFiles: true,
       outputMarkdown: process.env.OUTPUT_MARKDOWN === "true",
       includeTrading: true,
-      log: (line) => logLines.push(line),
+      log: (line) => {
+        logLines.push(line);
+        broadcast(run.id, "log", line);
+      },
     });
     const report = await persistGenerationResult(result);
     await prisma.generationRun.update({
@@ -42,9 +70,11 @@ export async function runGeneration(input: {
         finishedAt: new Date(),
         articlesCount: result.articles.length,
         llmBackend: process.env.LLM_BACKEND ?? "claude-cli",
+        errorMessage: null,
         logExcerpt: logLines.slice(-40).join("\n"),
       },
     });
+    broadcast(run.id, "done", "success");
   } catch (error) {
     await prisma.generationRun.update({
       where: { id: run.id },
@@ -55,9 +85,12 @@ export async function runGeneration(input: {
         logExcerpt: logLines.slice(-40).join("\n"),
       },
     });
+    broadcast(run.id, "done", "failed");
     throw error;
   } finally {
     inProcess = false;
+    // Clean up subscribers after a short delay so clients can receive the final event
+    setTimeout(() => subscribers.delete(run.id), 5_000);
   }
 }
 

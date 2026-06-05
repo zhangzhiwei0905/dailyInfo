@@ -1,13 +1,19 @@
-import { NextResponse } from "next/server";
 import { listReadyReports } from "@/lib/db/report-repository";
 import { currentLocale } from "@/lib/web/report-persistence";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(request: Request) {
+function redirectTo(path: string): Response {
+  return new Response(null, {
+    status: 307,
+    headers: { Location: path },
+  });
+}
+
+export async function GET() {
   const [latest] = await listReadyReports(currentLocale());
   if (!latest) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return redirectTo("/");
   }
-  return NextResponse.redirect(new URL(`/report/${latest.dateKey}`, request.url));
+  return redirectTo(`/report/${latest.dateKey}`);
 }
