@@ -93,6 +93,7 @@ model ReportArticle {
   heatScore            Float?
   recommendationScore  Float?
   recommendationReason String?
+  importanceScore      Float?
   rawJson              Json?
 }
 

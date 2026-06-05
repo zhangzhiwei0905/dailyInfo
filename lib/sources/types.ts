@@ -71,4 +71,5 @@ export interface RawArticle {
   heatScore?: number;
   recommendationScore?: number;
   recommendationReason?: string;
+  importanceScore?: number;
 }

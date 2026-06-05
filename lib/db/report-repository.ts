@@ -49,6 +49,7 @@ export async function upsertReadyReport(input: {
         heatScore: article.heatScore ?? null,
         recommendationScore: article.recommendationScore ?? null,
         recommendationReason: article.recommendationReason ?? null,
+        importanceScore: article.importanceScore ?? null,
         rawJson: {
           sourceId: article.sourceId,
           title: article.title,
@@ -60,6 +61,7 @@ export async function upsertReadyReport(input: {
           heatScore: article.heatScore ?? null,
           recommendationScore: article.recommendationScore ?? null,
           recommendationReason: article.recommendationReason ?? null,
+          importanceScore: article.importanceScore ?? null,
         },
       })),
     });
