@@ -53,6 +53,7 @@ export async function runGeneration(input: {
     const result = await generateDailyBrief({
       date: input.date,
       sources,
+      trigger: input.trigger,
       writeFiles: true,
       outputMarkdown: process.env.OUTPUT_MARKDOWN === "true",
       includeTrading: true,

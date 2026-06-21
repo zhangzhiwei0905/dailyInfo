@@ -1,11 +1,81 @@
 [
   {
+    "id": "qbitai",
+    "name": "量子位",
+    "type": "rss",
+    "url": "https://www.qbitai.com/feed",
+    "category": "tech",
+    "subcategory": "ai-model",
+    "lang": "zh",
+    "useCurl": true,
+    "enabled": true,
+    "locales": [
+      "zh"
+    ]
+  },
+  {
+    "id": "36kr",
+    "name": "36氪",
+    "type": "rss",
+    "url": "https://www.36kr.com/feed",
+    "category": "tech",
+    "subcategory": "ai-model",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ],
+    "maxItems": 8
+  },
+  {
+    "id": "leiphone",
+    "name": "雷锋网",
+    "type": "rss",
+    "url": "https://www.leiphone.com/feed",
+    "category": "tech",
+    "subcategory": "ai-model",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ],
+    "maxItems": 8
+  },
+  {
+    "id": "landiannews",
+    "name": "蓝点网",
+    "type": "rss",
+    "url": "https://www.landiannews.com/feed",
+    "category": "tech",
+    "subcategory": "ai-model",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ],
+    "maxItems": 8
+  },
+  {
+    "id": "oschina-news",
+    "name": "开源中国资讯",
+    "type": "rss",
+    "url": "https://www.oschina.net/news/rss",
+    "category": "tech",
+    "subcategory": "dev-community",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ],
+    "maxItems": 8
+  },
+  {
     "id": "github-trending",
     "name": "GitHub Trending",
     "type": "scrape",
     "url": "https://github.com/trending?since=daily",
     "category": "tech",
-    "subcategory": "github-trending",
+    "subcategory": "dev-community",
     "lang": "en",
     "enabled": true,
     "locales": [
@@ -15,44 +85,72 @@
     "notes": "每日 GitHub 趋势榜；由 lib/sources/github-trending.ts 抓取榜单顺序和 star 信息。"
   },
   {
+    "id": "ruanyifeng",
+    "name": "阮一峰",
+    "type": "rss",
+    "url": "https://www.ruanyifeng.com/blog/atom.xml",
+    "category": "tech",
+    "subcategory": "dev-community",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ]
+  },
+  {
     "id": "hellogithub",
     "name": "HelloGitHub 月刊",
     "type": "rss",
     "url": "https://hellogithub.com/rss/all",
     "category": "tech",
-    "subcategory": "blog-weekly",
-    "lang": "zh",
-    "enabled": true,
-    "locales": [
-      "zh"
-    ]
-  },
-  {
-    "id": "oschina-news",
-    "name": "开源中国资讯",
-    "type": "rss",
-    "url": "https://www.oschina.net/news/rss",
-    "category": "tech",
-    "subcategory": "cn-community",
+    "subcategory": "dev-community",
     "lang": "zh",
     "enabled": true,
     "locales": [
       "zh"
     ],
-    "notes": "替代掘金 RSS；掘金源在生成时会出现 XML 属性解析错误。"
+    "maxItems": 8
   },
   {
-    "id": "qbitai",
-    "name": "量子位",
+    "id": "ithome",
+    "name": "IT之家",
     "type": "rss",
-    "url": "https://www.qbitai.com/feed",
+    "url": "https://www.ithome.com/rss/",
     "category": "tech",
-    "subcategory": "ai-news",
+    "subcategory": "tech-companies",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ],
+    "maxItems": 8
+  },
+  {
+    "id": "sspai",
+    "name": "少数派",
+    "type": "rss",
+    "url": "https://sspai.com/feed",
+    "category": "tech",
+    "subcategory": "tech-companies",
     "lang": "zh",
     "enabled": true,
     "locales": [
       "zh"
     ]
+  },
+  {
+    "id": "ifanr",
+    "name": "爱范儿",
+    "type": "rss",
+    "url": "https://www.ifanr.com/feed",
+    "category": "tech",
+    "subcategory": "tech-companies",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ],
+    "maxItems": 8
   },
   {
     "id": "chinanews-finance",
@@ -60,28 +158,13 @@
     "type": "rss",
     "url": "https://www.chinanews.com.cn/rss/finance.xml",
     "category": "finance",
-    "subcategory": "china-finance",
+    "subcategory": "china-economy",
     "lang": "zh",
     "enabled": true,
     "locales": [
       "zh"
     ],
-    "notes": "替代人民网财经；人民网 RSS 当前返回 2025-06-05 的旧日期。"
-  },
-  {
-    "id": "npr-business",
-    "name": "NPR Business",
-    "type": "rss",
-    "url": "https://feeds.npr.org/1006/rss.xml",
-    "category": "finance",
-    "subcategory": "global-business",
-    "lang": "en",
-    "enabled": true,
-    "locales": [
-      "zh",
-      "en"
-    ],
-    "notes": "日期规范的商业财经源；中文模式下会自动生成中文 AI 总结。"
+    "maxItems": 8
   },
   {
     "id": "cnbc-economy",
@@ -89,14 +172,73 @@
     "type": "rss",
     "url": "https://www.cnbc.com/id/20910258/device/rss/rss.html",
     "category": "finance",
-    "subcategory": "macro-economy",
+    "subcategory": "china-economy",
     "lang": "en",
     "enabled": true,
     "locales": [
       "zh",
       "en"
     ],
-    "notes": "日期规范的宏观经济源；中文模式下会自动生成中文 AI 总结。"
+    "maxItems": 8
+  },
+  {
+    "id": "marketwatch",
+    "name": "MarketWatch",
+    "type": "rss",
+    "url": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+    "category": "finance",
+    "subcategory": "china-economy",
+    "lang": "en",
+    "enabled": true,
+    "locales": [
+      "zh",
+      "en"
+    ]
+  },
+  {
+    "id": "npr-business",
+    "name": "NPR Business",
+    "type": "rss",
+    "url": "https://feeds.npr.org/1006/rss.xml",
+    "category": "finance",
+    "subcategory": "global-finance",
+    "lang": "en",
+    "enabled": true,
+    "locales": [
+      "zh",
+      "en"
+    ],
+    "maxItems": 8
+  },
+  {
+    "id": "cnbc-markets",
+    "name": "CNBC Markets",
+    "type": "rss",
+    "url": "https://www.cnbc.com/id/10000664/device/rss/rss.html",
+    "category": "finance",
+    "subcategory": "global-finance",
+    "lang": "en",
+    "enabled": true,
+    "locales": [
+      "zh",
+      "en"
+    ],
+    "maxItems": 8
+  },
+  {
+    "id": "cnbc-finance",
+    "name": "CNBC Finance",
+    "type": "rss",
+    "url": "https://www.cnbc.com/id/100727362/device/rss/rss.html",
+    "category": "finance",
+    "subcategory": "global-finance",
+    "lang": "en",
+    "enabled": true,
+    "locales": [
+      "zh",
+      "en"
+    ],
+    "maxItems": 8
   },
   {
     "id": "chinanews-china",
@@ -104,13 +246,41 @@
     "type": "rss",
     "url": "https://www.chinanews.com.cn/rss/china.xml",
     "category": "politics",
-    "subcategory": "china",
+    "subcategory": "china-politics",
     "lang": "zh",
     "enabled": true,
     "locales": [
       "zh"
     ],
-    "notes": "替代人民网时政；人民网 RSS 当前返回 2025-06-05 的旧日期。"
+    "maxItems": 8
+  },
+  {
+    "id": "chinanews-politics",
+    "name": "中新网时政",
+    "type": "rss",
+    "url": "https://www.chinanews.com.cn/rss/politics.xml",
+    "category": "politics",
+    "subcategory": "china-politics",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ],
+    "maxItems": 8
+  },
+  {
+    "id": "chinanews-scroll",
+    "name": "中新网滚动",
+    "type": "rss",
+    "url": "https://www.chinanews.com.cn/rss/scroll-news.xml",
+    "category": "politics",
+    "subcategory": "china-politics",
+    "lang": "zh",
+    "enabled": true,
+    "locales": [
+      "zh"
+    ],
+    "maxItems": 8
   },
   {
     "id": "chinanews-world",
@@ -118,13 +288,13 @@
     "type": "rss",
     "url": "https://www.chinanews.com.cn/rss/world.xml",
     "category": "politics",
-    "subcategory": "world",
+    "subcategory": "world-affairs",
     "lang": "zh",
     "enabled": true,
     "locales": [
       "zh"
     ],
-    "notes": "替代人民网国际；人民网 RSS 当前返回 2025-06-05 的旧日期。"
+    "maxItems": 8
   },
   {
     "id": "npr-world",
@@ -132,13 +302,28 @@
     "type": "rss",
     "url": "https://feeds.npr.org/1004/rss.xml",
     "category": "politics",
-    "subcategory": "world",
+    "subcategory": "world-affairs",
     "lang": "en",
     "enabled": true,
     "locales": [
       "zh",
       "en"
     ],
-    "notes": "第三个日期规范的国际时政源；中文模式下会自动生成中文 AI 总结。"
+    "maxItems": 8
+  },
+  {
+    "id": "npr-politics",
+    "name": "NPR Politics",
+    "type": "rss",
+    "url": "https://feeds.npr.org/1014/rss.xml",
+    "category": "politics",
+    "subcategory": "world-affairs",
+    "lang": "en",
+    "enabled": true,
+    "locales": [
+      "zh",
+      "en"
+    ],
+    "maxItems": 8
   }
 ]

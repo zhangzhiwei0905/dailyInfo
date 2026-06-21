@@ -88,7 +88,7 @@ export async function fetchRss(
   category: Category,
   options: { limit?: number; useCurl?: boolean; hydrateShortExcerpt?: boolean } = {},
 ): Promise<RawArticle[]> {
-  const limit = options.limit ?? 30;
+  const limit = options.limit ?? 10;
 
   let feed;
   if (options.useCurl) {

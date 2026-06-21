@@ -38,6 +38,7 @@ export type GenerateDailyOptions = {
   writeFiles?: boolean;
   outputMarkdown?: boolean;
   includeTrading?: boolean;
+  trigger?: "manual" | "schedule" | "startup";
   log?: (line: string) => void;
 };
 
@@ -47,10 +48,37 @@ export type GenerateDailyResult = {
   report: DailyReport;
   html: string;
   markdown?: string;
+  durationMs: number;
+  trigger?: string;
 };
 
 function reportLocale(): "zh" | "en" {
   return process.env.REPORT_LOCALE === "en" ? "en" : "zh";
+}
+
+/** Max concurrent LLM calls — keeps DeepSeek rate limits happy. */
+const DEFAULT_CONCURRENCY = 3;
+
+/**
+ * Run async tasks in parallel batches of `concurrency`.
+ * Each batch waits for all tasks to finish before starting the next.
+ */
+async function runWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  fn: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  const results: R[] = new Array(items.length);
+  for (let i = 0; i < items.length; i += concurrency) {
+    const batch = items.slice(i, i + concurrency);
+    const batchResults = await Promise.all(
+      batch.map((item, j) => fn(item, i + j)),
+    );
+    for (let k = 0; k < batchResults.length; k++) {
+      results[i + k] = batchResults[k];
+    }
+  }
+  return results;
 }
 
 async function fetchAll(
@@ -159,38 +187,38 @@ function fallbackArticleSummary(article: ArticleInput): string {
   return `${source}${detail}`.replace(/\s+/g, " ").slice(0, 180);
 }
 
-async function applyArticleSummaries(
-  batch: ArticleInput[],
-  log: (line: string) => void,
-): Promise<void> {
-  const summaries = await enrichArticleSummaries(batch);
-  for (const article of batch) {
-    const summary = summaries.get(article.url);
-    if (summary) article.summary = summary;
-  }
-
-  const stillMissing = batch.filter((article) => !article.summary);
-  if (stillMissing.length === 0) return;
-
-  log(`[daily] retrying article summaries one by one: ${stillMissing.length}`);
-  for (const article of stillMissing) {
-    const retry = await enrichArticleSummaries([article]);
-    article.summary = retry.get(article.url) || fallbackArticleSummary(article);
-  }
-}
-
 async function enrichMissingArticleSummaries(
   articles: ArticleInput[],
   log: (line: string) => void,
 ): Promise<void> {
   const missing = articles.filter((article) => !article.summary);
   if (missing.length === 0) return;
-  const summaryBatchSize = 15;
-  log(`[daily] enriching ${missing.length} article summaries`);
+
+  const summaryBatchSize = 30;
+  const batches: ArticleInput[][] = [];
   for (let i = 0; i < missing.length; i += summaryBatchSize) {
-    const batch = missing.slice(i, i + summaryBatchSize);
-    await applyArticleSummaries(batch, log);
+    batches.push(missing.slice(i, i + summaryBatchSize));
   }
+
+  log(`[daily] enriching ${missing.length} article summaries (${batches.length} batches ×3 concurrent)`);
+
+  await runWithConcurrency(batches, DEFAULT_CONCURRENCY, async (batch, idx) => {
+    const summaries = await enrichArticleSummaries(batch);
+    for (const article of batch) {
+      const summary = summaries.get(article.url);
+      if (summary) article.summary = summary;
+    }
+
+    // Retry failed articles in batch
+    const stillMissing = batch.filter((article) => !article.summary);
+    if (stillMissing.length > 0) {
+      log(`[daily] batch ${idx + 1}: retrying ${stillMissing.length} summaries`);
+      for (const article of stillMissing) {
+        const retry = await enrichArticleSummaries([article]);
+        article.summary = retry.get(article.url) || fallbackArticleSummary(article);
+      }
+    }
+  });
 }
 
 async function runTrading(log: (line: string) => void): Promise<TradingSection | null> {
@@ -238,6 +266,7 @@ function writeCompatibilityFiles(
 export async function generateDailyBrief(
   options: GenerateDailyOptions,
 ): Promise<GenerateDailyResult> {
+  const startTime = Date.now();
   const log = options.log ?? (() => undefined);
   validateBackendCredentials();
   log(`[daily] ${options.date} - fetching sources`);
@@ -246,23 +275,26 @@ export async function generateDailyBrief(
 
   await enrichGithub(articles, log);
   await enrichTrendingPapers(articles, log);
-  await enrichMergedSubgroup(articles, options.sources, "finance", "news", log);
-  await enrichMergedSubgroup(articles, options.sources, "politics", "world", log);
-  await enrichMergedSubgroup(articles, options.sources, "tech", "ai-news", log);
+  await enrichMergedSubgroup(articles, options.sources, "finance", "china-economy", log);
+  await enrichMergedSubgroup(articles, options.sources, "finance", "global-finance", log);
+  await enrichMergedSubgroup(articles, options.sources, "politics", "world-affairs", log);
   await enrichXViral(articles, log);
   await enrichMissingArticleSummaries(articles, log);
 
-  // Importance scoring — batch all articles in groups of 15
+  // Importance scoring — concurrent batches of 15
   const importanceBatchSize = 15;
-  log(`[daily] scoring importance for ${articles.length} articles`);
+  const importanceBatches: ArticleInput[][] = [];
   for (let i = 0; i < articles.length; i += importanceBatchSize) {
-    const batch = articles.slice(i, i + importanceBatchSize);
+    importanceBatches.push(articles.slice(i, i + importanceBatchSize));
+  }
+  log(`[daily] scoring importance for ${articles.length} articles (${importanceBatches.length} batches ×${DEFAULT_CONCURRENCY} concurrent)`);
+  await runWithConcurrency(importanceBatches, DEFAULT_CONCURRENCY, async (batch) => {
     const scores = await enrichImportanceScores(batch);
     for (const article of batch) {
       const score = scores.get(article.url);
       if (score !== undefined) article.importanceScore = score;
     }
-  }
+  });
 
   let trading: TradingSection | null = null;
   if (options.includeTrading !== false) {
@@ -278,9 +310,25 @@ export async function generateDailyBrief(
   const { report } = await generateDailyReport(articles);
   if (trading) report.trading = trading;
   const raw = groupRaw(articles, options.sources);
-  const html = renderHtml(report, raw, options.date);
+  const durationMs = Date.now() - startTime;
+  const generatedAt = new Date().toISOString();
+  const durationLabel = durationMs >= 60_000
+    ? `${Math.round(durationMs / 60_000)}m${Math.round((durationMs % 60_000) / 1000)}s`
+    : `${Math.round(durationMs / 1000)}s`;
+  log(`[daily] done in ${durationLabel}`);
+
+  const meta = { durationMs, trigger: options.trigger, generatedAt };
+  const html = renderHtml(report, raw, options.date, meta);
   const markdown = options.outputMarkdown ? renderMarkdown(report, options.date) : undefined;
-  const result = { date: options.date, articles, report, html, markdown };
+  const result: GenerateDailyResult = {
+    date: options.date,
+    articles,
+    report,
+    html,
+    markdown,
+    durationMs,
+    trigger: options.trigger,
+  };
   if (options.writeFiles !== false) {
     writeCompatibilityFiles(result, options.outputDir ?? "daily_reports", options.outputMarkdown ?? false);
   }

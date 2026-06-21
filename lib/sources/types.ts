@@ -46,6 +46,11 @@ export interface SourceDef {
    * Omit or leave empty to return all items unfiltered.
    */
   keywords?: string[];
+  /**
+   * Max items to fetch from this source. Defaults to 10 in rss.ts.
+   * Lower values reduce fetch time and LLM enrichment load.
+   */
+  maxItems?: number;
 }
 
 export interface RawArticle {

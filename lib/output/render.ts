@@ -31,18 +31,13 @@ const TEXTS_ZH = {
   catFinance: "财经要点",
   catPolitics: "时政观察",
   catTrading: "市场行情",
-  catCommunity: "社区讨论",
-  subAiNews: "AI 媒体",
-  subTrendingPapers: "热门论文",
-  subXViral: "X 推文",
-  subBlogWeekly: "博客周刊",
-  subCnCommunity: "中文社区",
-  subOverseasCommunity: "海外社区",
-  subFinanceNews: "财经新闻",
-  subFinanceCommunity: "社区讨论",
-  subWorld: "国际要闻",
-  subOverseasNews: "海外科技",
-  subOverseas: "海外",
+  subAiModel: "AI 大模型",
+  subDevCommunity: "开发者社区",
+  subTechCompanies: "科技公司动态",
+  subChinaEconomy: "中国经济",
+  subGlobalFinance: "全球财经",
+  subChinaPolitics: "国内时政",
+  subWorldAffairs: "国际要闻",
   emptySource: "该源今日无内容。",
   emptyCategory: "该分类今日无内容。",
   emptyGroup: "该组今日无数据。",
@@ -80,6 +75,9 @@ const TEXTS_ZH = {
   topicOverviewLabel: "主题速览",
   topicQuietFinance: "当日无明确财经主线，后续可在财经栏目查看原始来源更新。",
   topicQuietGeneric: "当日未形成高置信主题主线，可在下方栏目继续查看原始条目。",
+  generatedManual: "手动生成",
+  generatedScheduled: "定时任务",
+  generatedAt: "生成于",
 };
 
 const TEXTS_EN: typeof TEXTS_ZH = {
@@ -88,18 +86,13 @@ const TEXTS_EN: typeof TEXTS_ZH = {
   catFinance: "Finance",
   catPolitics: "World",
   catTrading: "Markets",
-  catCommunity: "Community",
-  subAiNews: "AI Media",
-  subTrendingPapers: "Trending Papers",
-  subXViral: "X Viral",
-  subBlogWeekly: "Blog Weekly",
-  subCnCommunity: "Chinese Community",
-  subOverseasCommunity: "Overseas Community",
-  subFinanceNews: "Finance News",
-  subFinanceCommunity: "Community",
-  subWorld: "World News",
-  subOverseasNews: "Overseas Tech",
-  subOverseas: "Overseas",
+  subAiModel: "AI Models",
+  subDevCommunity: "Dev Community",
+  subTechCompanies: "Tech Companies",
+  subChinaEconomy: "China Economy",
+  subGlobalFinance: "Global Finance",
+  subChinaPolitics: "China Politics",
+  subWorldAffairs: "World Affairs",
   emptySource: "No content from this source today.",
   emptyCategory: "No content in this category today.",
   emptyGroup: "No data for this group today.",
@@ -138,6 +131,9 @@ const TEXTS_EN: typeof TEXTS_ZH = {
   topicOverviewLabel: "Topic Overview",
   topicQuietFinance: "No clear finance through-line emerged today; check the finance tab for source updates.",
   topicQuietGeneric: "No high-confidence theme emerged today; review the source items below for details.",
+  generatedManual: "Manual",
+  generatedScheduled: "Scheduled",
+  generatedAt: "Generated at",
 };
 
 const STR = REPORT_LOCALE === "en" ? TEXTS_EN : TEXTS_ZH;
@@ -183,34 +179,19 @@ const CATEGORY_DIGEST_LABELS: Record<Category, string> = {
  * L2 ordering per category. Categories not listed render flat (no L2 tabs).
  */
 const SUBCATEGORY_ORDER: Partial<Record<Category, string[]>> = {
-  // cn-community + overseas-community are listed last so the L1 "community"
-  // panel (rendered separately via TECH_COMMUNITY_SUBS) can extract them.
-  // Within the "tech" L1 panel itself, COMMUNITY_SUBS is filtered out.
-  // Locale filtering at registry level decides which actually appears:
-  // zh mode keeps cn-community (V2EX / LinuxDo); en mode keeps
-  // overseas-community (Hacker News / r/stocks).
-  tech: ["github-trending", "trending-papers", "x-viral", "ai-news", "cn-community", "overseas-community"],
-  finance: ["china-finance", "global-business", "macro-economy"],
-  politics: ["china", "world"],
+  tech: ["ai-model", "dev-community", "tech-companies"],
+  finance: ["china-economy", "global-finance"],
+  politics: ["china-politics", "world-affairs"],
 };
 
-const TECH_MAIN_SUBS = new Set(["github-trending", "trending-papers", "x-viral", "ai-news"]);
-const TECH_COMMUNITY_SUBS = new Set(["cn-community", "overseas-community"]);
-
 const SUBCATEGORY_LABELS: Record<string, string> = {
-  "github-trending": "GitHub Trending",
-  "trending-papers": STR.subTrendingPapers,
-  "cn-community": STR.subCnCommunity,
-  "overseas-community": STR.subOverseasCommunity,
-  "ai-news": STR.subAiNews,
-  "x-viral": STR.subXViral,
-  "blog-weekly": STR.subBlogWeekly,
-  "china-finance": "国内财经",
-  "global-business": "全球商业",
-  "macro-economy": "宏观经济",
-  china: "国内",
-  news: STR.subFinanceNews,
-  world: STR.subWorld,
+  "ai-model": STR.subAiModel,
+  "dev-community": STR.subDevCommunity,
+  "tech-companies": STR.subTechCompanies,
+  "china-economy": STR.subChinaEconomy,
+  "global-finance": STR.subGlobalFinance,
+  "china-politics": STR.subChinaPolitics,
+  "world-affairs": STR.subWorldAffairs,
 };
 
 /**
@@ -222,10 +203,7 @@ const SUBCATEGORY_LABELS: Record<string, string> = {
  * finance:news, politics:world) ignore this — they use MERGED_SUBGROUP_LIMITS.
  */
 const SOURCE_DISPLAY_LIMITS: Record<string, number> = {
-  "tech:github-trending": 20,
-  "tech:cn-community": 10,
-  "tech:x-viral": 20,
-  "tech:trending-papers": 20,
+  "tech:dev-community": 20,
 };
 
 /**
@@ -261,12 +239,13 @@ function displayLimitFor(
  * Exported so daily.ts can read the cap to keep enrichment in sync.
  */
 export const MERGED_SUBGROUP_LIMITS: Record<string, number> = {
-  "tech:ai-news": 15,
-  "finance:china-finance": 12,
-  "finance:global-business": 12,
-  "finance:macro-economy": 12,
-  "politics:china": 12,
-  "politics:world": 15,
+  "tech:ai-model": 15,
+  "tech:dev-community": 15,
+  "tech:tech-companies": 15,
+  "finance:china-economy": 12,
+  "finance:global-finance": 12,
+  "politics:china-politics": 12,
+  "politics:world-affairs": 15,
 };
 
 /**
@@ -766,29 +745,25 @@ export function renderHtml(
   report: DailyReport,
   raw: RawByCategory,
   date: string,
+  meta?: { durationMs?: number; trigger?: string; generatedAt?: string },
 ): string {
   const trading = report.trading;
+  const generatedAtDate = meta?.generatedAt ? new Date(meta.generatedAt) : null;
   // UI-only suppression: keep trading data in the JSON cache, but do not
   // surface the market panel while the product direction is news-first.
   const showTradingPanel = false;
 
   // Split tech raw subgroups: "tech" L1 panel (github-trending + ai-news)
   // vs. "community" L1 panel (cn-community). Keeps the registry simple
-  // (V2EX/LinuxDo still live under category=tech) while exposing the
-  // forums as their own top-level tab per UX preference.
-  const techMainSubs = raw.tech.filter((s) => TECH_MAIN_SUBS.has(s.id));
-  const techCommunitySubs = raw.tech.filter((s) => TECH_COMMUNITY_SUBS.has(s.id));
-
   const sumItems = (subs: SubGroup[]) =>
     subs.reduce(
       (n, sg) => n + sg.sources.reduce((m, s) => m + s.items.length, 0),
       0,
     );
   const counts = {
-    tech: sumItems(techMainSubs),
+    tech: sumItems(raw.tech),
     finance: sumItems(raw.finance),
     politics: sumItems(raw.politics),
-    community: sumItems(techCommunitySubs),
   };
   const dateDisplay = getDateDisplay(date);
   const topicOverviews = getTopicOverviews(report, counts);
@@ -1515,6 +1490,12 @@ export function renderHtml(
     color: var(--muted);
     font-size: 0.82rem;
   }
+  .generated-info {
+    margin-top: 0.35rem;
+    font-size: 0.76rem;
+    color: var(--muted);
+    opacity: 0.72;
+  }
   @media (max-width: 760px) {
     main { width: min(100% - 1.1rem, 1180px); padding-top: 1.3rem; }
     header.report-header {
@@ -1592,11 +1573,10 @@ ${reportSiteNavStyles()}
     ${showTradingPanel && trading ? `<button class="tab" data-tab="trading">${STR.catTrading}<span class="count">${trading.tickers.length}</span></button>` : ""}
     <button class="tab" data-tab="politics">${CATEGORY_LABELS.politics}<span class="count">${counts.politics}</span></button>
     <button class="tab" data-tab="finance">${CATEGORY_LABELS.finance}<span class="count">${counts.finance}</span></button>
-    ${techCommunitySubs.length > 0 ? `<button class="tab" data-tab="community">${STR.catCommunity}<span class="count">${counts.community}</span></button>` : ""}
   </nav>
 
   <section id="content" class="panel active" data-panel="tech">
-    ${renderRawCategoryPanel("tech", techMainSubs)}
+    ${renderRawCategoryPanel("tech", raw.tech)}
   </section>
   ${showTradingPanel && trading ? `<section class="panel" data-panel="trading">${renderTradingPanel(trading)}</section>` : ""}
   <section class="panel" data-panel="politics">
@@ -1605,12 +1585,10 @@ ${reportSiteNavStyles()}
   <section class="panel" data-panel="finance">
     ${renderRawCategoryPanel("finance", raw.finance)}
   </section>
-  ${techCommunitySubs.length > 0 ? `<section class="panel" data-panel="community">
-    ${renderRawCategoryPanel("tech", techCommunitySubs)}
-  </section>` : ""}
 
   <footer>
     ${STR.footer}
+    ${meta?.durationMs != null && generatedAtDate ? `<p class="generated-info">${STR.generatedAt} ${generatedAtDate.toLocaleString(REPORT_LOCALE === "en" ? "en-US" : "zh-CN", { year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false })} · ${meta.durationMs >= 60_000 ? `${Math.round(meta.durationMs / 60_000)}m${Math.round((meta.durationMs % 60_000) / 1000)}s` : `${Math.round(meta.durationMs / 1000)}s`}${meta.trigger ? ` · ${meta.trigger === "manual" ? STR.generatedManual : meta.trigger === "schedule" ? STR.generatedScheduled : ""}` : ""}</p>` : ""}
   </footer>
 </main>
 <script>
@@ -1665,24 +1643,39 @@ ${reportSiteNavStyles()}
       bar.querySelectorAll('.sort-btn').forEach(function (b) {
         b.classList.toggle('active', b === btn);
       });
-      subContent.querySelectorAll('.source-content').forEach(function (container) {
-        var articles = Array.prototype.slice.call(container.querySelectorAll('article.article'));
-        if (articles.length < 2) return;
-        articles.sort(function (a, b) {
-          if (mode === 'time') {
-            return parseFloat(b.dataset.sortTime) - parseFloat(a.dataset.sortTime);
-          }
-          if (mode === 'source') {
+      if (mode === 'recommended') {
+        // Recommended — sort within each source-content
+        subContent.querySelectorAll('.source-content').forEach(function (container) {
+          var articles = Array.prototype.slice.call(container.querySelectorAll('article.article'));
+          if (articles.length < 2) return;
+          articles.sort(function (a, b) {
+            return parseFloat(b.dataset.sortScore) - parseFloat(a.dataset.sortScore);
+          });
+          articles.forEach(function (el) { container.appendChild(el); });
+        });
+      } else {
+        // Time / Source — pool all articles across all source-contents
+        var allArticles = [];
+        subContent.querySelectorAll('.source-content').forEach(function (container) {
+          var articles = Array.prototype.slice.call(container.querySelectorAll('article.article'));
+          allArticles.push.apply(allArticles, articles);
+        });
+        if (allArticles.length > 1) {
+          allArticles.sort(function (a, b) {
+            if (mode === 'time') {
+              return parseFloat(b.dataset.sortTime) - parseFloat(a.dataset.sortTime);
+            }
+            // source mode — group by source alphabetically, then by time desc
             var srcDiff = a.dataset.sortSource < b.dataset.sortSource ? -1 :
                           a.dataset.sortSource > b.dataset.sortSource ? 1 : 0;
             if (srcDiff !== 0) return srcDiff;
-            return parseFloat(b.dataset.sortScore) - parseFloat(a.dataset.sortScore);
-          }
-          // recommended (default)
-          return parseFloat(b.dataset.sortScore) - parseFloat(a.dataset.sortScore);
-        });
-        articles.forEach(function (el) { container.appendChild(el); });
-      });
+            return parseFloat(b.dataset.sortTime) - parseFloat(a.dataset.sortTime);
+          });
+          allArticles.forEach(function (el) {
+            el.parentNode.appendChild(el);
+          });
+        }
+      }
       // Persist sort choice in URL query param
       try {
         var url = new URL(window.location.href);
